@@ -1,0 +1,13 @@
+# yosys assumes memory for (2d) arrays
+#read_verilog -defer -sv fdct.sv fiau.sv mau.sv addertree.sv
+
+read_verilog -sv -defer test.sv
+#chparam -set TEST_PARAMETER 1
+hierarchy -check
+prep -top test -flatten
+json -o test.json
+
+#proc; opt; fsm; opt; memory; opt
+
+synth_xilinx
+

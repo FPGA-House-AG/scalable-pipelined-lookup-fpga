@@ -1,0 +1,4 @@
+stage*.mem
+*.json
+*.svg
+obj_dir
