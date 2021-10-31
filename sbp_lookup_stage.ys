@@ -1,6 +1,3 @@
-# yosys assumes memory for (2d) arrays
-#read_verilog -defer -sv fdct.sv fiau.sv mau.sv addertree.sv
-
 read_verilog -sv -defer sbp_lookup_stage.sv
 chparam -set STAGE_ID 1
 hierarchy -check

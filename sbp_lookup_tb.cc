@@ -7,7 +7,7 @@
 
 #include <stdlib.h>
 
-#include "Vmeminit.h"
+#include "Vsbp_lookup.h"
 
 #include "verilated.h"
 #include "verilated_vcd_c.h"
@@ -18,7 +18,7 @@ int main(int argc, char **argv)
   Verilated::commandArgs(argc, argv);
 
   // Create an instance of our module under test
-  Vmeminit *tb = new Vmeminit;
+  Vsbp_lookup *tb = new Vsbp_lookup;
 
   // init trace dump
   Verilated::traceEverOn(true);
@@ -27,7 +27,7 @@ int main(int argc, char **argv)
   tb->trace(tfp, 99);
 #if defined(VCD) && VCD
   // generates GByte files, disabled by default to prevent SSD wear
-  tfp->open("meminit_tb.vcd");
+  tfp->open("sbp_lookup_tb.vcd");
 #endif
 
   int test_result = 0;

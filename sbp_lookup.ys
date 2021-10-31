@@ -1,0 +1,13 @@
+read_verilog -sv -defer sbp_lookup.sv sbp_lookup_stage.sv
+read_verilog -defer bram_tdp.v
+
+#chparam -set NUM_STAGES 32
+hierarchy -check
+
+prep -top sbp_lookup -flatten
+json -o sbp_lookup.json
+
+#proc; opt; fsm; opt; memory; opt
+
+synth_xilinx
+

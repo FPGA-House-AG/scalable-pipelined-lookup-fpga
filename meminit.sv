@@ -1,3 +1,5 @@
+// this module verifies correct memory initialization using $readmemh
+
 module meminit #(
     parameter DATA = 64,
     parameter ADDR = 11
