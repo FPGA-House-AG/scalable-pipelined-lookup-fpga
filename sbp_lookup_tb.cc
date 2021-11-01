@@ -12,6 +12,10 @@
 #include "verilated.h"
 #include "verilated_vcd_c.h"
 
+//#include "common.cpp"
+
+#define VCD 1
+
 int main(int argc, char **argv)
 {
   // Initialize Verilators variables
@@ -31,20 +35,31 @@ int main(int argc, char **argv)
 #endif
 
   int test_result = 0;
+  int timestamp = 0;
+
+/*
+   VL_IN8(clk,0,0);
+    VL_IN8(rst,0,0);
+    VL_IN(ip_addr_i,31,0);
+    VL_OUT(result_o,16,0)
+*/
 
   tb->clk = 0;
+  tb->rst = 0;
   tb->eval();
+  tb->ip_addr_i = 0xAaaaaaaa;
   // Tick the clock until we are done
   //	while(!Verilated::gotFinish()) {
   //for (int t = 0; t < (n * x_range); t++)
-  while(1)
+  int count = 10;
+  while(timestamp < 10)
   {
     tb->clk = 0;
     tb->eval();
     tb->clk = 1;
     tb->eval();
+    tfp->dump(timestamp++);
   }
-  //tfp->dump(timestamp++);
   tfp->close();
   printf("%s: %s\n", argv[0], test_result?"FAILED":"PASSED");
   exit(test_result);

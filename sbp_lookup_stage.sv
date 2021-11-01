@@ -93,9 +93,13 @@ end
 
 // right_sel is set when the right child is selected
 logic right_sel;
+logic [31:0] mask;
+logic [31:0] masked_ip_addr;
 always_comb begin
   /* is bit at bit_pos in ip_addr set? then select right child */
-  right_sel = (ip_addr_d & (32'b1000_0000_0000_0000_0000 >> bit_pos_d)) > 0;
+  mask = 32'b1000_0000_0000_0000_0000_0000_0000_0000 >> bit_pos_d;
+  masked_ip_addr = ip_addr_d & mask;
+  right_sel = masked_ip_addr > 0;
 end
 
 /* location_o */
@@ -130,7 +134,12 @@ end
 
 /* bit_pos_o */
 always_ff @(posedge clk) begin
-  bit_pos_o <= bit_pos_i + 1;
+  if (stage_sel) begin
+    // @TODO verify
+    bit_pos_o <= bit_pos_d + 1;
+  end else begin
+    bit_pos_o <= bit_pos_d;
+  end
 end
 
 
