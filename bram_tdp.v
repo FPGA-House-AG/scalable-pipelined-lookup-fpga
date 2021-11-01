@@ -1,6 +1,7 @@
 // A parameterized, inferable, true dual-port, dual-clock block RAM in Verilog.
 
 module bram_tdp #(
+    parameter STAGE_ID = 0,
     parameter DATA = 72,
     parameter ADDR = 10,
     parameter MEMINIT_FILENAME = "stage0.mem"
@@ -24,7 +25,7 @@ module bram_tdp #(
 reg [DATA-1:0] mem [(2**ADDR)-1:0];
 
 initial begin
-  $display("Loading RAM.");
+  $display("Initializing RAM for stage %0d with contents of %s.", STAGE_ID, MEMINIT_FILENAME);
   $readmemh(MEMINIT_FILENAME, mem);
 end
 

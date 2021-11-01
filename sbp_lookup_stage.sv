@@ -13,7 +13,7 @@ module sbp_lookup_stage #(
   input   wire                rst,
   /* verilator lint_on UNUSED */
   input   wire    [5:0]       bit_pos_i,
-  input   wire    [STAGE_ID_BITS-1:0]       stage_id_i,
+  input   wire    [STAGE_ID_BITS-1:0]      stage_id_i,
   input   wire    [LOCATION_BITS-1:0]      location_i,
   input   wire    [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_i,
   input   reg     [31:0]      ip_addr_i,
@@ -24,7 +24,7 @@ module sbp_lookup_stage #(
   output   wire   [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_o,
   output  reg     [31:0]      ip_addr_o,
 /* verilator lint_off UNUSED */
-  output wire read,
+  output wire write,
 /* verilator lint_on UNUSED */
   output wire [ADDR_BITS - 1:0] addr,
   input wire  [DATA_BITS - 1:0] data
@@ -79,8 +79,8 @@ always_comb begin
   stage_sel = (stage_id_d == STAGE_ID);
 end
 
-// read from stage memory
-assign read = 1;
+// write to stage memory
+assign write = 0;
 assign addr = location_i;
 
 // ip_addr_i matches against prefix from stage memory?
