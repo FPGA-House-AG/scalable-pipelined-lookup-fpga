@@ -47,7 +47,7 @@ int main(int argc, char **argv)
   tb->clk = 0;
   tb->rst = 0;
   tb->eval();
-  tb->ip_addr_i = 0xAaaaaaaa;
+  tb->ip_addr_i = 0xC0A80000;
   // Tick the clock until we are done
   //	while(!Verilated::gotFinish()) {
   //for (int t = 0; t < (n * x_range); t++)
