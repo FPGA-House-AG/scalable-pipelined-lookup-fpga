@@ -171,7 +171,7 @@ generate
 
     // "NAME00" + (256* (i / 10)) + (i % 10)
     // "" is treated as a number, and digits 00 are added to, resulting in "%02d, i" for i small enough
-    bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("../scalable-pipelined-lookup-c/stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
+    bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("../scalable-pipelined-lookup-c/output/stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
       .a_clk(clk),
       .a_wr(0),
       .a_addr(raddr[i]),
