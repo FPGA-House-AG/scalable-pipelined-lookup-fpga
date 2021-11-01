@@ -12,11 +12,20 @@ sbp_lookup:
 	yosys $@.ys
 	netlistsvg $@.json -o $@.svg
 
+sbp_lookup_test: obj_dir/Vsbp_lookup
+	./obj_dir/Vsbp_lookup
+
 obj_dir/Vsbp_lookup: sbp_lookup_tb.cc sbp_lookup.sv sbp_lookup_stage.sv bram_tdp.v
 	set -e
 	verilator -Wall --cc --trace --exe $^
 	make -j -C obj_dir/ -f Vsbp_lookup.mk Vsbp_lookup
 
+clean:
+	rm -f *.json *.svg
+
+# Below are deprecated Make targets, used during early development
+
+# test memory initialization
 obj_dir/Vmeminit: meminit_tb.cc meminit.sv
 	set -e
 	verilator -Wall --cc --trace --exe $^

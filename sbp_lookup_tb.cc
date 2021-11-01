@@ -5,6 +5,7 @@
  * Copyright 2021 Leon Woestenberg <leon@brightai.com>. All rights reserved.
  */
 
+#include <limits.h>
 #include <stdlib.h>
 
 #include "Vsbp_lookup.h"
@@ -47,15 +48,16 @@ int main(int argc, char **argv)
   tb->clk = 0;
   tb->rst = 0;
   tb->eval();
-  tb->ip_addr_i = 0xC0A80000;
+  tb->ip_addr_i = 0x08000000;
   // Tick the clock until we are done
   //	while(!Verilated::gotFinish()) {
   //for (int t = 0; t < (n * x_range); t++)
-  int count = 10;
-  while(timestamp < 10)
+  int count = 1024;
+  while(timestamp < 1024)
   {
     tb->clk = 0;
     tb->eval();
+    tb->ip_addr_i = (rand() % UINT32_MAX);
     tb->clk = 1;
     tb->eval();
     tfp->dump(timestamp++);
