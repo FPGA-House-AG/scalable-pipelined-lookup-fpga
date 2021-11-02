@@ -16,17 +16,17 @@ module sbp_lookup_stage #(
   input   wire    [STAGE_ID_BITS-1:0]      stage_id_i,
   input   wire    [LOCATION_BITS-1:0]      location_i,
   input   wire    [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_i,
-  input   reg     [31:0]      ip_addr_i,
+  input   wire     [31:0]      ip_addr_i,
 
-  output   wire   [5:0]       bit_pos_o,
-  output   wire   [STAGE_ID_BITS-1:0]       stage_id_o,
+  output   logic   [5:0]       bit_pos_o,
+  output   logic   [STAGE_ID_BITS-1:0]       stage_id_o,
   output   logic  [LOCATION_BITS-1:0]      location_o,
-  output   wire   [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_o,
-  output  reg     [31:0]      ip_addr_o,
+  output   logic   [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_o,
+  output   logic    [31:0]      ip_addr_o,
 /* verilator lint_off UNUSED */
-  output wire write,
+  output logic write,
 /* verilator lint_on UNUSED */
-  output wire [ADDR_BITS - 1:0] addr,
+  output logic [ADDR_BITS - 1:0] addr,
   input wire  [DATA_BITS - 1:0] data
 );
 
@@ -67,11 +67,6 @@ always_ff @(posedge clk) begin
   end
 end
 
-// ip_addr is passed through
-always_ff @(posedge clk) begin
-  ip_addr_o <= ip_addr_d;
-end
-
 // stage_sel is set when this stage instance is selected
 logic stage_sel;
 always_comb begin
@@ -107,43 +102,48 @@ always_comb begin
 end
 
 /* stage_id_o */
-always_ff @(posedge clk) begin
+always_comb begin
   if (stage_sel) begin
-    stage_id_o <= child_stage_id_mem;
+    stage_id_o = child_stage_id_mem;
   end else begin
-    stage_id_o <= stage_id_d;
+    stage_id_o = stage_id_d;
   end
 end
 
 /* location_o */
-always_ff @(posedge clk) begin
+always_comb begin
   if (stage_sel) begin
     if (right_sel)
       // right child is located after left child, always in same stage
-      location_o <= child_location_mem + 1;
+      location_o = child_location_mem + 1;
     else
-      location_o <= child_location_mem;
+      location_o = child_location_mem;
   end else begin
-    location_o <= location_d;
+    location_o = location_d;
   end
 end
 
 /* result_o */
-always_ff @(posedge clk) begin
+always_comb begin
   if (valid_match) begin
-    result_o <= { stage_id_d, location_d };
+    result_o = { stage_id_d, location_d };
   end else begin
-    result_o <= result_d;
+    result_o = result_d;
   end
 end
 
 /* bit_pos_o */
-always_ff @(posedge clk) begin
+always_comb begin
   if (stage_sel) begin
-    bit_pos_o <= bit_pos_d + 1;
+    bit_pos_o = bit_pos_d + 1;
   end else begin
-    bit_pos_o <= bit_pos_d;
+    bit_pos_o = bit_pos_d;
   end
+end
+
+// ip_addr is passed through
+always_comb begin
+  ip_addr_o = ip_addr_d;
 end
 
 endmodule
