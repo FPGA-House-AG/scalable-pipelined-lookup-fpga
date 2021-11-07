@@ -28,11 +28,11 @@ sbp_lookup_stage #(.STAGE_ID(0), .ADDR_BITS(ADDR_BITS), .DATA_BITS(DATA_BITS)) s
   /* verilator lint_off UNUSED */
   .rst(rst),
   /* verilator lint_on UNUSED */
-  .bit_pos_i(0),
-  .stage_id_i(0),
-  .location_i(0),
-  .result_i(0),
-  .ip_addr_i(ip_addr_i),
+  .bit_pos_i(0),         // @TODO: consider write mode prefix length
+  .stage_id_i(0),        // @TODO: consider write mode destination address
+  .location_i(0),        // @TODO: consider write mode destination address
+  .result_i(0),          // @TODO: consider write mode stage_id/location id/child flags
+  .ip_addr_i(ip_addr_i), // @TODO: consider write mode prefix
 
   // passed to next stage
   .result_o(result_o),
