@@ -16,7 +16,7 @@ module sbp_lookup_stage #(
   input   wire    [STAGE_ID_BITS-1:0]      stage_id_i,
   input   wire    [LOCATION_BITS-1:0]      location_i,
   input   wire    [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_i,
-  input   wire     [31:0]      ip_addr_i,
+  input   wire    [31:0]      ip_addr_i,
 
   output   logic   [5:0]       bit_pos_o,
   output   logic   [STAGE_ID_BITS-1:0]       stage_id_o,
@@ -24,9 +24,9 @@ module sbp_lookup_stage #(
   output   logic   [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_o,
   output   logic    [31:0]      ip_addr_o,
 /* verilator lint_off UNUSED */
-  output logic write,
+  output wire write,
 /* verilator lint_on UNUSED */
-  output logic [ADDR_BITS - 1:0] addr,
+  output wire [ADDR_BITS - 1:0] addr,
   input wire  [DATA_BITS - 1:0] data
 );
 
@@ -65,6 +65,11 @@ always_ff @(posedge clk) begin
     ip_addr_d  <= ip_addr_i;
     result_d   <= result_i;
   end
+end
+
+// ip_addr is passed through
+always_ff @(posedge clk) begin
+  ip_addr_o <= ip_addr_d;
 end
 
 // stage_sel is set when this stage instance is selected
@@ -139,11 +144,6 @@ always_comb begin
   end else begin
     bit_pos_o = bit_pos_d;
   end
-end
-
-// ip_addr is passed through
-always_comb begin
-  ip_addr_o = ip_addr_d;
 end
 
 endmodule

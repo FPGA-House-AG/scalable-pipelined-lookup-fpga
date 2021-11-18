@@ -22,7 +22,7 @@ module bram_tdp #(
 );
  
 // Shared memory
-reg [DATA-1:0] mem [(2**ADDR)-1:0];
+(* ram_style = "block" *) reg [DATA-1:0] mem [(2**ADDR)-1:0];
 
 initial begin
   $display("Initializing RAM for stage %0d with contents of %s.", STAGE_ID, MEMINIT_FILENAME);

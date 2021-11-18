@@ -7,9 +7,9 @@ module sbp_lookup #(
   parameter STAGE_ID_BITS = 6,
   parameter LOCATION_BITS = 11
 ) (
-  input wire clk,
-  input wire rst,
-  input wire [31:0] ip_addr_i,
+  input wire logic clk,
+  input wire logic rst,
+  input wire logic [31:0] ip_addr_i,
   output logic [LOCATION_BITS + STAGE_ID_BITS - 1:0] result_o
 );
 
