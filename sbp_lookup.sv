@@ -6,12 +6,15 @@ module sbp_lookup #(
   parameter DATA_BITS = 64,
   parameter STAGE_ID_BITS = 6,
   parameter LOCATION_BITS = 11
-) (
-  input wire logic clk,
-  input wire logic rst,
-  input wire logic [31:0] ip_addr_i,
-  output logic [LOCATION_BITS + STAGE_ID_BITS - 1:0] result_o
-);
+) (clk, rst, ip_addr_i, result_o, ip_addr_o);
+
+localparam RESULT_BITS = 1 + LOCATION_BITS + 2 + STAGE_ID_BITS;
+
+input wire logic clk;
+input wire logic rst;
+input wire logic [31:0] ip_addr_i;
+output logic [RESULT_BITS - 1:0] result_o;
+output logic [31:0] ip_addr_o;
 
 // single stages
 //`define SINGLE_STAGE
@@ -78,7 +81,7 @@ logic [5:0] bit_pos [NUM_STAGES];
 logic [STAGE_ID_BITS - 1:0] stage_id [NUM_STAGES];
 logic [LOCATION_BITS - 1:0] location [NUM_STAGES];
 logic [31:0] ip_addr [NUM_STAGES];
-logic [LOCATION_BITS + STAGE_ID_BITS - 1:0] result [NUM_STAGES];
+logic [RESULT_BITS - 1:0] result [NUM_STAGES];
 
 genvar i;
 generate

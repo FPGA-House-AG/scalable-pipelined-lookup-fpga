@@ -8,32 +8,39 @@ module sbp_lookup_stage #(
   parameter ADDR_BITS = 11,
   parameter DATA_BITS = 64
 ) (
-  input   wire                clk,
-  /* verilator lint_off UNUSED */
-  input   wire                rst,
-  /* verilator lint_on UNUSED */
-  input   wire    [5:0]       bit_pos_i,
-  input   wire    [STAGE_ID_BITS-1:0]      stage_id_i,
-  input   wire    [LOCATION_BITS-1:0]      location_i,
-  input   wire    [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_i,
-  input   wire    [31:0]      ip_addr_i,
-
-  output   logic   [5:0]       bit_pos_o,
-  output   logic   [STAGE_ID_BITS-1:0]       stage_id_o,
-  output   logic  [LOCATION_BITS-1:0]      location_o,
-  output   logic   [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_o,
-  output   logic    [31:0]      ip_addr_o,
-/* verilator lint_off UNUSED */
-  output wire write,
-/* verilator lint_on UNUSED */
-  output wire [ADDR_BITS - 1:0] addr,
-  input wire  [DATA_BITS - 1:0] data
+  clk, rst,
+  bit_pos_i, stage_id_i, location_i, result_i, ip_addr_i,
+  bit_pos_o, stage_id_o, location_o, result_o, ip_addr_o,
+  write, addr, data
 );
+
+localparam RESULT_BITS = 1 + LOCATION_BITS + 2 + STAGE_ID_BITS;
+
+input   wire                clk;
+/* verilator lint_off UNUSED */
+input   wire                rst;
+/* verilator lint_on UNUSED */
+input   wire    [5:0]                    bit_pos_i;
+input   wire    [STAGE_ID_BITS-1:0]      stage_id_i;
+input   wire    [LOCATION_BITS-1:0]      location_i;
+input   wire    [RESULT_BITS - 1:0]      result_i;
+input   wire    [31:0]                   ip_addr_i;
+
+output   logic  [5:0]                    bit_pos_o;
+output   logic  [STAGE_ID_BITS-1:0]      stage_id_o;
+output   logic  [LOCATION_BITS-1:0]      location_o;
+output   logic  [RESULT_BITS - 1:0]      result_o;
+output   logic  [31:0]                   ip_addr_o;
+/* verilator lint_off UNUSED */
+output wire write;
+/* verilator lint_on UNUSED */
+output wire [ADDR_BITS - 1:0] addr;
+input wire  [DATA_BITS - 1:0] data;
 
 logic [5:0]       bit_pos_d;
 logic [STAGE_ID_BITS-1:0]       stage_id_d;
 logic [LOCATION_BITS-1:0]      location_d;
-logic [LOCATION_BITS + STAGE_ID_BITS - 1:0]      result_d;
+logic [RESULT_BITS - 1:0]      result_d;
 logic [31:0]      ip_addr_d;
 
 // fields in memory word
@@ -68,8 +75,8 @@ always_ff @(posedge clk) begin
 end
 
 // ip_addr is passed through
-always_ff @(posedge clk) begin
-  ip_addr_o <= ip_addr_d;
+always_comb begin
+  ip_addr_o = ip_addr_d;
 end
 
 // stage_sel is set when this stage instance is selected
@@ -131,7 +138,8 @@ end
 /* result_o */
 always_comb begin
   if (valid_match) begin
-    result_o = { stage_id_d, location_d };
+    /* RESULT_BITS */
+    result_o = { 2'b10/*marks match for manual inspection*/, stage_id_d, 1'b0, location_d };
   end else begin
     result_o = result_d;
   end
