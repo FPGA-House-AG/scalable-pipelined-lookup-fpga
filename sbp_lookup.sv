@@ -137,7 +137,7 @@ generate
         .bit_pos_o(),
         .stage_id_o(),
         .location_o(),
-        .ip_addr_o(),
+        .ip_addr_o(ip_addr[i]),
         /* verilator lint_on PINCONNECTEMPTY */
         /* verilator lint_off UNUSED */
         .write(write[i]),
@@ -191,7 +191,10 @@ generate
     );
   end
 endgenerate
+
 assign result_o = result[NUM_STAGES - 1];
+assign ip_addr_o = ip_addr[NUM_STAGES - 1];
+
 `endif
 
 endmodule

@@ -17,6 +17,10 @@
 
 #define VCD 1
 
+#define LATENCY (32)
+uint32_t ip_addr_i[LATENCY];
+int ip_addr_index = 0;
+
 int main(int argc, char **argv)
 {
   // Initialize Verilators variables
@@ -52,15 +56,35 @@ int main(int argc, char **argv)
   // Tick the clock until we are done
   //	while(!Verilated::gotFinish()) {
   //for (int t = 0; t < (n * x_range); t++)
-  int count = 1024;
-  while(timestamp < 1024)
+  int cycles = 0;
+
+  while(cycles < 64)
   {
+    // set inputs
+    if (cycles == 1)
+      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x7545e140u; //(rand() % UINT32_MAX);
+    else if (cycles == 2)
+      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x4db00000;
+    else
+      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = (rand() % UINT32_MAX);
+
+    // falling edge
     tb->clk = 0;
     tb->eval();
-    tb->ip_addr_i = (rand() % UINT32_MAX);
+    tfp->dump(timestamp++);
+
+    // rising edge
     tb->clk = 1;
     tb->eval();
     tfp->dump(timestamp++);
+    
+    // check outputs
+    if (cycles >= LATENCY) {
+      printf("0x%08x -> 0x%08x\n", ip_addr_i[(ip_addr_index + LATENCY + 1) % LATENCY], tb->result_o);
+    }
+
+    ip_addr_index += 1;
+    cycles++;
   }
   tfp->close();
   printf("%s: %s\n", argv[0], test_result?"FAILED":"PASSED");
