@@ -17,7 +17,7 @@
 
 #define VCD 1
 
-#define LATENCY (32)
+#define LATENCY (33)
 uint32_t ip_addr_i[LATENCY];
 int ip_addr_index = 0;
 
@@ -52,22 +52,45 @@ int main(int argc, char **argv)
   tb->clk = 0;
   tb->rst = 0;
   tb->eval();
-  tb->ip_addr_i = 0x08000000;
+  tb->ip_addr_i = 0x00000000u;
   // Tick the clock until we are done
   //	while(!Verilated::gotFinish()) {
   //for (int t = 0; t < (n * x_range); t++)
   int cycles = 0;
 
-  while(cycles < 64)
+  while (cycles < 64)
   {
     // set inputs
-    if (cycles == 1)
-      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x7545e140u; //(rand() % UINT32_MAX);
-    else if (cycles == 2)
-      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x4db00000;
-    else
-      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = (rand() % UINT32_MAX);
+    if (cycles == 1) { 
+      tb->ip_addr_i = 0x327b23c0u;
+      tb->upd_length_i = 24;
+      /* entry to be written */
+      tb->upd_stage_id_i = 3;
+      tb->upd_location_i = 1;
+      /* pointer to child */
+      tb->upd_childs_stage_id_i = 0x3c;
+      tb->upd_childs_location_i = 0x123;
+      tb->upd_childs_lr_i = 0;
+      tb->upd_i = 1;
+    } else {
+      tb->ip_addr_i = 0;
+      tb->upd_length_i = 0;
+      tb->upd_stage_id_i = 0;
+      tb->upd_location_i = 0;
+      tb->upd_childs_stage_id_i = 0;
+      tb->upd_childs_location_i = 0;
+      tb->upd_childs_lr_i = 0;
+      tb->upd_i = 0;
+    }
 
+    if (cycles == 3)
+      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x7545e140u;
+    else if (cycles == 4)
+      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x327b23f0u;
+#if 0
+    else if (cycles > 4)
+      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = (rand() % UINT32_MAX);
+#endif
     // falling edge
     tb->clk = 0;
     tb->eval();

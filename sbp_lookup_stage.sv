@@ -5,16 +5,32 @@ module sbp_lookup_stage #(
   parameter STAGE_ID = 1,
   parameter STAGE_ID_BITS = 6,
   parameter LOCATION_BITS = 11,
-  parameter ADDR_BITS = 11,
-  parameter DATA_BITS = 64
+  parameter PAD_BITS = 4,
+  parameter ADDR_BITS = 11
+  //parameter DATA_BITS = 72
 ) (
   clk, rst,
-  bit_pos_i, stage_id_i, location_i, result_i, ip_addr_i,
-  bit_pos_o, stage_id_o, location_o, result_o, ip_addr_o,
-  write, addr, data
+  update_i, update_o,
+  ip_addr_i, bit_pos_i, stage_id_i, location_i, result_i, 
+  ip_addr_o, bit_pos_o, stage_id_o, location_o, result_o, 
+  wr_en_o, addr_o, data_i, data_o
 );
 
-localparam RESULT_BITS = 1 + LOCATION_BITS + 2 + STAGE_ID_BITS;
+localparam BIT_POS_BITS = 6;
+localparam CHILD_LR_BITS = 2;
+
+/* pad every field to nibbles */
+localparam PAD_BIT_POS_BITS  = (32 -  BIT_POS_BITS) % PAD_BITS;
+localparam PAD_STAGE_ID_BITS = (32 - STAGE_ID_BITS) % PAD_BITS;
+localparam PAD_LOCATION_BITS = (32 - LOCATION_BITS) % PAD_BITS;
+localparam PAD_CHILD_LR_BITS = (32 - CHILD_LR_BITS) % PAD_BITS;
+
+/* [23:22][21:16] [15][14:4] [3:2][1:0] */
+localparam RESULT_BITS = PAD_STAGE_ID_BITS + STAGE_ID_BITS +
+                         PAD_LOCATION_BITS + LOCATION_BITS +
+                         PAD_CHILD_LR_BITS + CHILD_LR_BITS;
+
+localparam DATA_BITS = 32 + PAD_BIT_POS_BITS + BIT_POS_BITS + RESULT_BITS;
 
 input   wire                clk;
 /* verilator lint_off UNUSED */
@@ -26,42 +42,58 @@ input   wire    [LOCATION_BITS-1:0]      location_i;
 input   wire    [RESULT_BITS - 1:0]      result_i;
 input   wire    [31:0]                   ip_addr_i;
 
+input wire update_i;
+output logic update_o;
+
 output   logic  [5:0]                    bit_pos_o;
 output   logic  [STAGE_ID_BITS-1:0]      stage_id_o;
 output   logic  [LOCATION_BITS-1:0]      location_o;
 output   logic  [RESULT_BITS - 1:0]      result_o;
 output   logic  [31:0]                   ip_addr_o;
-/* verilator lint_off UNUSED */
-output wire write;
-/* verilator lint_on UNUSED */
-output wire [ADDR_BITS - 1:0] addr;
-input wire  [DATA_BITS - 1:0] data;
 
-logic [5:0]       bit_pos_d;
-logic [STAGE_ID_BITS-1:0]       stage_id_d;
+/* lookup table memory interface */
+output wire wr_en_o;
+output wire  [ADDR_BITS - 1:0] addr_o;
+input  wire  [DATA_BITS - 1:0] data_i;
+output logic [DATA_BITS - 1:0] data_o;
+
+logic [5:0]                    bit_pos_d;
+logic [STAGE_ID_BITS-1:0]      stage_id_d;
 logic [LOCATION_BITS-1:0]      location_d;
 logic [RESULT_BITS - 1:0]      result_d;
-logic [31:0]      ip_addr_d;
+logic [31:0]                   ip_addr_d;
 
 // fields in memory word
 logic [31:0]      prefix_mem;
 logic [5:0]       prefix_length_mem;
 // @TODO add result
-logic [STAGE_ID_BITS-1:0]    child_stage_id_mem;
+logic [STAGE_ID_BITS-1:0] child_stage_id_mem;
 logic [LOCATION_BITS-1:0] child_location_mem;
 
-/* verilator lint_off UNUSED */
-logic [1:0] dummy1;
-logic [1:0] dummy2;
-logic [0:0] dummy3;
-logic [1:0] dummy4;
-logic has_left;
-logic has_right;
-/* verilator lint_on UNUSED */
+generate
+  /* verilator lint_off UNUSED */
+  logic has_left;
+  logic has_right;
+  /* verilator lint_on UNUSED */
+  if (PAD_BITS > 1) begin
+    /* verilator lint_off UNUSED */
+    logic [PAD_BIT_POS_BITS  - 1:0] padding1;
+    logic [PAD_STAGE_ID_BITS - 1:0] padding2;
+    logic [PAD_LOCATION_BITS - 1:0] padding3;
+    logic [PAD_CHILD_LR_BITS - 1:0] padding4;
+    /* verilator lint_on UNUSED */
 
-// decompose memory data fields, for now use extra dummy bits to have human readable nibble alignment
-// 32 + (2+)6 + (2+)6 + (1+)11 + (2+)1 + 1 = 64 bits = 8 bytes
-assign {prefix_mem, dummy1, prefix_length_mem, dummy2, child_stage_id_mem, dummy3, child_location_mem, dummy4, has_left, has_right} = data;
+    // decompose memory data fields, for now use extra padding bits to have human readable nibble alignment
+    //32 + (2+)6 + (2+)6 + (1+)11 + (2+)1 + 1 = 64 bits = 8 bytes
+    assign {prefix_mem, padding1, prefix_length_mem, padding2, child_stage_id_mem, padding3, child_location_mem, padding4, has_left, has_right} = data_i;
+
+  end else begin
+    assign {prefix_mem, prefix_length_mem, child_stage_id_mem, child_location_mem, has_left, has_right} = data_i;
+  end
+endgenerate
+
+// data written to lookup table when updating (upd_i == 1)
+assign data_o = { ip_addr_i/*prefix*/, {PAD_BIT_POS_BITS{1'b0}}, bit_pos_i/*prefix length*/, result_i };
 
 /* stage_id and location delayed */
 always_ff @(posedge clk) begin
@@ -71,6 +103,7 @@ always_ff @(posedge clk) begin
     location_d <= location_i;
     ip_addr_d  <= ip_addr_i;
     result_d   <= result_i;
+    update_o   <=  update_i;
   end
 end
 
@@ -87,8 +120,16 @@ always_comb begin
 end
 
 // write to stage memory
-assign write = 0;
-assign addr = location_i;
+assign wr_en_o = update_i && (stage_id_i == STAGE_ID);
+assign addr_o = location_i;
+
+always_ff @(posedge clk) begin
+  if (clk) begin
+    if (wr_en_o) begin
+    $display("0x%x", data_o);
+    end
+  end
+end
 
 // ip_addr_i matches against prefix from stage memory?
 logic prefix_match;
@@ -115,7 +156,7 @@ end
 
 /* stage_id_o */
 always_comb begin
-  if (stage_sel) begin
+  if (stage_sel && !update_i) begin
     stage_id_o = child_stage_id_mem;
   end else begin
     stage_id_o = stage_id_d;
@@ -124,7 +165,7 @@ end
 
 /* location_o */
 always_comb begin
-  if (stage_sel) begin
+  if (stage_sel && !update_i) begin
     if (right_sel)
       // right child is located after left child, always in same stage
       location_o = child_location_mem + 1;
@@ -137,9 +178,9 @@ end
 
 /* result_o */
 always_comb begin
-  if (valid_match) begin
+  if (valid_match && !update_i) begin
     /* RESULT_BITS */
-    result_o = { 2'b10/*marks match for manual inspection*/, stage_id_d, 1'b0, location_d };
+    result_o = { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_d, {PAD_LOCATION_BITS{1'b0}}, location_d, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
   end else begin
     result_o = result_d;
   end
@@ -147,7 +188,7 @@ end
 
 /* bit_pos_o */
 always_comb begin
-  if (stage_sel) begin
+  if (stage_sel && !update_i) begin
     bit_pos_o = bit_pos_d + 1;
   end else begin
     bit_pos_o = bit_pos_d;
