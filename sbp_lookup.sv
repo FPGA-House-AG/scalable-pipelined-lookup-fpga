@@ -213,9 +213,9 @@ generate
         .a_din (wdata[i][0]),
         .a_dout(rdata[i][0]),
         .b_clk (clk),
-        .b_wr  (wr_en[i][1]),
+        .b_wr  (0),
         .b_addr( addr[i][1]),
-        .b_din (wdata[i][1]),
+        .b_din (0),
         .b_dout(rdata[i][1])
       );
     end
