@@ -36,20 +36,25 @@ input   wire                clk;
 /* verilator lint_off UNUSED */
 input   wire                rst;
 /* verilator lint_on UNUSED */
+
+/* ip address to be looked up, or if update_i==1, prefix to write */
+input   wire    [31:0]                   ip_addr_i;
 input   wire    [5:0]                    bit_pos_i;
 input   wire    [STAGE_ID_BITS-1:0]      stage_id_i;
 input   wire    [LOCATION_BITS-1:0]      location_i;
 input   wire    [RESULT_BITS - 1:0]      result_i;
-input   wire    [31:0]                   ip_addr_i;
 
-input wire update_i;
-output logic update_o;
+input wire logic update_i;
+output logic     update_o;
 
+output   logic  [31:0]                   ip_addr_o;
+/* next bit to test */
 output   logic  [5:0]                    bit_pos_o;
+/* next stage to visit */
 output   logic  [STAGE_ID_BITS-1:0]      stage_id_o;
 output   logic  [LOCATION_BITS-1:0]      location_o;
+/* longest prefix match result so far */
 output   logic  [RESULT_BITS - 1:0]      result_o;
-output   logic  [31:0]                   ip_addr_o;
 
 /* lookup table memory interface */
 output wire wr_en_o;
@@ -126,7 +131,7 @@ assign addr_o = location_i;
 always_ff @(posedge clk) begin
   if (clk) begin
     if (wr_en_o) begin
-    $display("0x%x", data_o);
+      $display("writing 0x%x to stage %2d location %3d", data_o, stage_id_i, location_i);
     end
   end
 end
@@ -156,7 +161,8 @@ end
 
 /* stage_id_o */
 always_comb begin
-  if (stage_sel && !update_i) begin
+  logic has_child = (has_left && !right_sel) || (has_right && right_sel);
+  if (stage_sel && !update_o && has_child) begin
     stage_id_o = child_stage_id_mem;
   end else begin
     stage_id_o = stage_id_d;
@@ -165,7 +171,7 @@ end
 
 /* location_o */
 always_comb begin
-  if (stage_sel && !update_i) begin
+  if (stage_sel && !update_o) begin
     if (right_sel)
       // right child is located after left child, always in same stage
       location_o = child_location_mem + 1;
@@ -178,7 +184,7 @@ end
 
 /* result_o */
 always_comb begin
-  if (valid_match && !update_i) begin
+  if (valid_match && !update_o) begin
     /* RESULT_BITS */
     result_o = { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_d, {PAD_LOCATION_BITS{1'b0}}, location_d, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
   end else begin
@@ -188,7 +194,7 @@ end
 
 /* bit_pos_o */
 always_comb begin
-  if (stage_sel && !update_i) begin
+  if (stage_sel && !update_o) begin
     bit_pos_o = bit_pos_d + 1;
   end else begin
     bit_pos_o = bit_pos_d;
