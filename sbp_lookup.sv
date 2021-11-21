@@ -11,11 +11,14 @@ module sbp_lookup #(
   clk, rst,
   /* update interface */
   upd_i, upd_stage_id_i, upd_location_i, upd_length_i, upd_childs_stage_id_i, upd_childs_location_i, upd_childs_lr_i,
-  /* lookup request */
-  ip_addr_i,
-  /* lookup result */
-  result_o, ip_addr_o
+  /* lookup request and result */
+  ip_addr_i, result_o, ip_addr_o,
+  /* lookup request and result on second lookup interface */
+  ip_addr2_i, result2_o, ip_addr2_o
 );
+
+localparam ENABLE_SECOND = 1;
+localparam NUM_LOOKUP = (ENABLE_SECOND? 2: 1);
 
 localparam BIT_POS_BITS = 6;
 localparam CHILD_LR_BITS = 2;
@@ -35,7 +38,7 @@ localparam DATA_BITS = 32 + PAD_BIT_POS_BITS + BIT_POS_BITS + RESULT_BITS;
 
 input wire logic clk;
 input wire logic rst;
-input wire logic [31:0] ip_addr_i;
+input wire logic [31:0] ip_addr_i, ip_addr2_i;
 
 /* update interface, to write to lookup tables */
 input wire logic                     upd_i;
@@ -46,171 +49,189 @@ input wire logic [STAGE_ID_BITS-1:0] upd_childs_stage_id_i;
 input wire logic [LOCATION_BITS-1:0] upd_childs_location_i;
 input wire logic [1:0]               upd_childs_lr_i;
 
-output logic [RESULT_BITS - 1:0] result_o;
-output logic [31:0] ip_addr_o;
+output logic [RESULT_BITS - 1:0] result_o, result2_o;
+output logic [31:0] ip_addr_o, ip_addr2_o;
 
-logic [ADDR_BITS - 1:0]  addr_a [NUM_STAGES];
-logic [DATA_BITS - 1:0] rdata_a [NUM_STAGES];
-logic wr_en_a                   [NUM_STAGES];
-logic [DATA_BITS - 1:0] wdata_a [NUM_STAGES];
+logic [ADDR_BITS - 1:0]  addr [NUM_STAGES][NUM_LOOKUP];
+logic [DATA_BITS - 1:0] rdata [NUM_STAGES][NUM_LOOKUP];
+logic wr_en                   [NUM_STAGES][NUM_LOOKUP];
+logic [DATA_BITS - 1:0] wdata [NUM_STAGES][NUM_LOOKUP];
 
-logic [5:0]                 bit_pos  [NUM_STAGES], bit_pos_d;
-logic [STAGE_ID_BITS - 1:0] stage_id [NUM_STAGES], stage_id_d;
-logic [LOCATION_BITS - 1:0] location [NUM_STAGES], location_d;
-logic [31:0]                ip_addr  [NUM_STAGES], ip_addr_d;
-logic [RESULT_BITS - 1:0]   result   [NUM_STAGES], result_d;
-logic                       update   [NUM_STAGES], update_d;
+logic [5:0]                 bit_pos  [NUM_STAGES][NUM_LOOKUP], bit_pos_d [NUM_LOOKUP];
+logic [STAGE_ID_BITS - 1:0] stage_id [NUM_STAGES][NUM_LOOKUP], stage_id_d[NUM_LOOKUP];
+logic [LOCATION_BITS - 1:0] location [NUM_STAGES][NUM_LOOKUP], location_d[NUM_LOOKUP];
+logic [31:0]                ip_addr  [NUM_STAGES][NUM_LOOKUP], ip_addr_d [NUM_LOOKUP];
+logic [RESULT_BITS - 1:0]   result   [NUM_STAGES][NUM_LOOKUP], result_d  [NUM_LOOKUP];
+logic                       update   [NUM_STAGES][NUM_LOOKUP], update_d  [NUM_LOOKUP];
 
 /* choose the inputs for either the lookup or update, depending on update flag */
 always_ff @(posedge clk) begin
   if (clk) begin
-    update_d   <= upd_i;
+    /* first interface is for lookups and updates */
+    update_d[0] <= upd_i;
     /* not updating the lookup table? */
     if (!upd_i) begin
       /* perform an IP address lookup */
-      ip_addr_d  <= ip_addr_i;
-      bit_pos_d  <= 0;
-      stage_id_d <= 0;
-      location_d <= 0;
-      result_d   <= 0;
+      ip_addr_d [0] <= ip_addr_i;
+      bit_pos_d [0] <= 0;
+      stage_id_d[0] <= 0;
+      location_d[0] <= 0;
+      result_d  [0] <= 0;
     /* updating the lookup table */
     end else begin
       /* ip_addr is now the prefix to be written */
-      ip_addr_d  <= ip_addr_i;
+      ip_addr_d [0]  <= ip_addr_i;
       /* bit_pos input is re-used as prefix length to be written */
-      bit_pos_d  <= upd_length_i;
+      bit_pos_d [0]  <= upd_length_i;
       /* the entry location to be updated */
-      stage_id_d <= upd_stage_id_i;
-      location_d <= upd_location_i;
+      stage_id_d[0]  <= upd_stage_id_i;
+      location_d[0]  <= upd_location_i;
       /* result input is re-used as childs pointer to be written */
       //result_d   <= { 2'b00, upd_childs_stage_id_i, 1'b0, upd_childs_location_i, 2'b0, upd_childs_lr_i };
       //result_d   <= { PAD_STAGE_ID_BITS'b00, upd_childs_stage_id_i, 1'b0, upd_childs_location_i, 2'b0, upd_childs_lr_i };
-      result_d   <= { {PAD_STAGE_ID_BITS{1'b0}}, upd_childs_stage_id_i,
-                      {PAD_LOCATION_BITS{1'b0}}, upd_childs_location_i,
-                      {PAD_CHILD_LR_BITS{1'b0}}, upd_childs_lr_i };
+      result_d  [0] <= { {PAD_STAGE_ID_BITS{1'b0}}, upd_childs_stage_id_i,
+                         {PAD_LOCATION_BITS{1'b0}}, upd_childs_location_i,
+                         {PAD_CHILD_LR_BITS{1'b0}}, upd_childs_lr_i };
+    end
+    if (ENABLE_SECOND == 1) begin
+      /* second interface is only for lookups */
+      update_d  [1] <= 0;
+      ip_addr_d [1] <= ip_addr2_i;
+      bit_pos_d [1] <= 0;
+      stage_id_d[1] <= 0;
+      location_d[1] <= 0;
+      result_d  [1] <= 0;
     end
   end
 end
 
-genvar i;
+genvar k, i;
 generate
-  for (i = 0; i < NUM_STAGES; i++)
-  begin : gen_sbp_lookup_stages
+  for (k = 0; k < NUM_LOOKUP; k++) begin
+    for (i = 0; i < NUM_STAGES; i++) begin : gen_sbp_lookup_stages
 
-    initial wr_en_a[i] = 0;
-    initial wdata_a[i] = '0;
+      initial wr_en[i][k] = 0;
+      initial wdata[i][k] = '0;
 
-    /* first stage, takes ip_addr_i */
-    if (i == 0) begin
-      sbp_lookup_stage #(.STAGE_ID(i), .ADDR_BITS(ADDR_BITS), /*.DATA_BITS(DATA_BITS),*/ .STAGE_ID_BITS(STAGE_ID_BITS), .LOCATION_BITS(LOCATION_BITS), .PAD_BITS(PAD_BITS)) sbp_lookup_stage_inst (
-        .clk(clk),
-        /* verilator lint_off UNUSED */
-        .rst(rst),
-        /* verilator lint_on UNUSED */
+      /* first stage, takes ip_addr_i */
+      if (i == 0) begin
+        sbp_lookup_stage #(.STAGE_ID(i), .ADDR_BITS(ADDR_BITS), /*.DATA_BITS(DATA_BITS),*/ .STAGE_ID_BITS(STAGE_ID_BITS), .LOCATION_BITS(LOCATION_BITS), .PAD_BITS(PAD_BITS)) sbp_lookup_stage_inst (
+          .clk(clk),
+          /* verilator lint_off UNUSED */
+          .rst(rst),
+          /* verilator lint_on UNUSED */
 
-        .bit_pos_i (bit_pos_d),
-        .stage_id_i(stage_id_d),
-        .location_i(location_d),
-        .result_i  (result_d),
-        .ip_addr_i (ip_addr_d),
+          .bit_pos_i (bit_pos_d [k]),
+          .stage_id_i(stage_id_d[k]),
+          .location_i(location_d[k]),
+          .result_i  (result_d  [k]),
+          .ip_addr_i (ip_addr_d [k]),
 
-        // passed to next stage
-        .result_o  (result  [i]),
-        .bit_pos_o (bit_pos [i]),
-        .stage_id_o(stage_id[i]),
-        .location_o(location[i]),
-        .ip_addr_o (ip_addr [i]),
+          // passed to next stage
+          .result_o  (result  [i][k]),
+          .bit_pos_o (bit_pos [i][k]),
+          .stage_id_o(stage_id[i][k]),
+          .location_o(location[i][k]),
+          .ip_addr_o (ip_addr [i][k]),
 
-        .update_i(update_d),
-        .update_o(update[i]),
+          .update_i(update_d[k]),
+          .update_o(update[i][k]),
 
-        .wr_en_o(wr_en_a[i]),
-        .addr_o ( addr_a[i]),
-        .data_i (rdata_a[i]),
-        .data_o (wdata_a[i])
-      );
-    /* last stage */
-    end else if (i == NUM_STAGES - 1) begin
-      sbp_lookup_stage #(.STAGE_ID(i), .ADDR_BITS(ADDR_BITS), /*.DATA_BITS(DATA_BITS),*/ .STAGE_ID_BITS(STAGE_ID_BITS), .LOCATION_BITS(LOCATION_BITS), .PAD_BITS(PAD_BITS)) sbp_lookup_stage_inst (
-        .clk(clk),
-        /* verilator lint_off UNUSED */
-        .rst(rst),
-        /* verilator lint_on UNUSED */
-        .bit_pos_i (bit_pos [i - 1]),
-        .stage_id_i(stage_id[i - 1]),
-        .location_i(location[i - 1]),
-        .result_i  (result  [i - 1]),
-        .ip_addr_i (ip_addr [i - 1]),
+          .wr_en_o(wr_en[i][k]),
+          .addr_o ( addr[i][k]),
+          .data_i (rdata[i][k]),
+          .data_o (wdata[i][k])
+        );
+      /* last stage */
+      end else if (i == NUM_STAGES - 1) begin
+        sbp_lookup_stage #(.STAGE_ID(i), .ADDR_BITS(ADDR_BITS), /*.DATA_BITS(DATA_BITS),*/ .STAGE_ID_BITS(STAGE_ID_BITS), .LOCATION_BITS(LOCATION_BITS), .PAD_BITS(PAD_BITS)) sbp_lookup_stage_inst (
+          .clk(clk),
+          /* verilator lint_off UNUSED */
+          .rst(rst),
+          /* verilator lint_on UNUSED */
+          .bit_pos_i (bit_pos [i - 1][k]),
+          .stage_id_i(stage_id[i - 1][k]),
+          .location_i(location[i - 1][k]),
+          .result_i  (result  [i - 1][k]),
+          .ip_addr_i (ip_addr [i - 1][k]),
 
-        // end result of lookup
-        .result_o(result[i]),
-        /* verilator lint_off PINCONNECTEMPTY */
-        .bit_pos_o (),
-        .stage_id_o(),
-        .location_o(),
-        .ip_addr_o (ip_addr[i]),
-        /* verilator lint_on PINCONNECTEMPTY */
+          // end result of lookup
+          .result_o(result[i][k]),
+          /* verilator lint_off PINCONNECTEMPTY */
+          .bit_pos_o (),
+          .stage_id_o(),
+          .location_o(),
+          .ip_addr_o (ip_addr[i][k]),
+          /* verilator lint_on PINCONNECTEMPTY */
 
-        .update_i(update[i - 1]),
-        .update_o(update[i]),
+          .update_i(update[i - 1][k]),
+          .update_o(update[i    ][k]),
 
-        .wr_en_o(wr_en_a[i]),
-        .addr_o (addr_a[i]),
-        .data_i (rdata_a[i]),
-        .data_o (wdata_a[i])
-      );
-    // intermediate stages
-    end else begin
-      sbp_lookup_stage #(.STAGE_ID(i), .ADDR_BITS(ADDR_BITS), /*.DATA_BITS(DATA_BITS),*/ .STAGE_ID_BITS(STAGE_ID_BITS), .LOCATION_BITS(LOCATION_BITS), .PAD_BITS(PAD_BITS)) sbp_lookup_stage_inst (
-        .clk(clk),
-        /* verilator lint_off UNUSED */
-        .rst(rst),
-        /* verilator lint_on UNUSED */
-        .bit_pos_i (bit_pos [i - 1]),
-        .stage_id_i(stage_id[i - 1]),
-        .location_i(location[i - 1]),
-        .result_i  (result  [i - 1]),
-        .ip_addr_i (ip_addr [i - 1]),
+          .wr_en_o(wr_en[i][k]),
+          .addr_o ( addr[i][k]),
+          .data_i (rdata[i][k]),
+          .data_o (wdata[i][k])
+        );
+      // intermediate stages
+      end else begin
+        sbp_lookup_stage #(.STAGE_ID(i), .ADDR_BITS(ADDR_BITS), /*.DATA_BITS(DATA_BITS),*/ .STAGE_ID_BITS(STAGE_ID_BITS), .LOCATION_BITS(LOCATION_BITS), .PAD_BITS(PAD_BITS)) sbp_lookup_stage_inst (
+          .clk(clk),
+          /* verilator lint_off UNUSED */
+          .rst(rst),
+          /* verilator lint_on UNUSED */
+          .bit_pos_i (bit_pos [i - 1][k]),
+          .stage_id_i(stage_id[i - 1][k]),
+          .location_i(location[i - 1][k]),
+          .result_i  (result  [i - 1][k]),
+          .ip_addr_i (ip_addr [i - 1][k]),
 
-        // passed to next stage
-        .result_o  (result  [i]),
-        .bit_pos_o (bit_pos [i]),
-        .stage_id_o(stage_id[i]),
-        .location_o(location[i]),
-        .ip_addr_o (ip_addr [i]),
+          // passed to next stage
+          .result_o  (result  [i][k]),
+          .bit_pos_o (bit_pos [i][k]),
+          .stage_id_o(stage_id[i][k]),
+          .location_o(location[i][k]),
+          .ip_addr_o (ip_addr [i][k]),
 
-        .update_i(update[i - 1]),
-        .update_o(update[i]),
+          .update_i(update[i - 1][k]),
+          .update_o(update[i    ][k]),
 
-        .wr_en_o(wr_en_a[i]),
-        .addr_o ( addr_a[i]),
-        .data_i (rdata_a[i]),
-        .data_o (wdata_a[i])
+          .wr_en_o(wr_en[i][k]),
+          .addr_o ( addr[i][k]),
+          .data_i (rdata[i][k]),
+          .data_o (wdata[i][k])
+        );
+      end
+
+    /* instantiate lookup table only once per stage */
+    if (k == 0) begin
+      // "NAME00" + (256* (i / 10)) + (i % 10)
+      // "" is treated as a number, and digits 00 are added to, resulting in "%02d, i" for i small enough
+      bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("../scalable-pipelined-lookup-c/output/stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
+        .a_clk (clk),
+        .a_wr  (wr_en[i][0]),
+        .a_addr( addr[i][0]),
+        .a_din (wdata[i][0]),
+        .a_dout(rdata[i][0]),
+        .b_clk (clk),
+        .b_wr  (wr_en[i][1]),
+        .b_addr( addr[i][1]),
+        .b_din (wdata[i][1]),
+        .b_dout(rdata[i][1])
       );
     end
-
-    // "NAME00" + (256* (i / 10)) + (i % 10)
-    // "" is treated as a number, and digits 00 are added to, resulting in "%02d, i" for i small enough
-    bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("../scalable-pipelined-lookup-c/output/stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
-      .a_clk (clk),
-      .a_wr  (wr_en_a[i]),
-      .a_addr( addr_a[i]),
-      .a_din (wdata_a[i]),
-      .a_dout(rdata_a[i]),
-      
-      .b_clk (clk),
-      .b_wr  (0),
-      .b_addr('0),
-      .b_din (0),
-      /* verilator lint_off PINCONNECTEMPTY */
-      .b_dout()
-      /* verilator lint_on PINCONNECTEMPTY */
-    );
-  end
+    end /* for i */
+  end /* for k */
 endgenerate
 
-assign result_o  = result [NUM_STAGES - 1];
-assign ip_addr_o = ip_addr[NUM_STAGES - 1];
+/* result from first interface */
+assign result_o  = result [NUM_STAGES - 1][0];
+assign ip_addr_o = ip_addr[NUM_STAGES - 1][0];
+
+if (ENABLE_SECOND) begin
+/* result from second interface */
+assign result2_o  = result [NUM_STAGES - 1][1];
+assign ip_addr2_o = ip_addr[NUM_STAGES - 1][1];
+end
 
 endmodule
 

@@ -19,6 +19,7 @@
 
 #define LATENCY (33)
 uint32_t ip_addr_i[LATENCY];
+uint32_t ip_addr2_i[LATENCY];
 int ip_addr_index = 0;
 
 int main(int argc, char **argv)
@@ -61,6 +62,17 @@ int main(int argc, char **argv)
   while (cycles < 64)
   {
     // set inputs
+
+    tb->ip_addr_i = 0;
+    tb->ip_addr2_i = 0;
+    tb->upd_length_i = 0;
+    tb->upd_stage_id_i = 0;
+    tb->upd_location_i = 0;
+    tb->upd_childs_stage_id_i = 0;
+    tb->upd_childs_location_i = 0;
+    tb->upd_childs_lr_i = 0;
+    tb->upd_i = 0;
+    /* update cycle */
     if (cycles == 1) { 
       tb->ip_addr_i = 0x327b23c0u;
       tb->upd_length_i = 24;
@@ -72,21 +84,15 @@ int main(int argc, char **argv)
       tb->upd_childs_location_i = 0x123;
       tb->upd_childs_lr_i = 0;
       tb->upd_i = 1;
-    } else {
-      tb->ip_addr_i = 0;
-      tb->upd_length_i = 0;
-      tb->upd_stage_id_i = 0;
-      tb->upd_location_i = 0;
-      tb->upd_childs_stage_id_i = 0;
-      tb->upd_childs_location_i = 0;
-      tb->upd_childs_lr_i = 0;
-      tb->upd_i = 0;
     }
-
+#if 0
     if (cycles == 3)
       tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x7545e140u;
-    else if (cycles == 4)
-      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x327b23f0u;
+    else
+#endif    
+    if (cycles == 6)
+      tb->ip_addr_i  = ip_addr_i [ip_addr_index % LATENCY] = 0x327b23f0u;
+      tb->ip_addr2_i = ip_addr2_i[ip_addr_index % LATENCY] = 0x62555800u;
 #if 0
     else if (cycles > 4)
       tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = (rand() % UINT32_MAX);
@@ -103,7 +109,8 @@ int main(int argc, char **argv)
     
     // check outputs
     if (cycles >= LATENCY) {
-      printf("0x%08x -> 0x%08x\n", ip_addr_i[(ip_addr_index + LATENCY + 1) % LATENCY], tb->result_o);
+      printf("0x%08x -> 0x%08x, ", ip_addr_i [(ip_addr_index + LATENCY + 1) % LATENCY], tb->result_o);
+      printf("0x%08x -> 0x%08x\n", ip_addr2_i[(ip_addr_index + LATENCY + 1) % LATENCY], tb->result2_o);
     }
 
     ip_addr_index += 1;
