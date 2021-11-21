@@ -58,7 +58,7 @@ output   logic  [RESULT_BITS - 1:0]      result_o;
 
 /* lookup table memory interface */
 output wire wr_en_o;
-output wire  [ADDR_BITS - 1:0] addr_o;
+output logic [ADDR_BITS - 1:0] addr_o;
 input  wire  [DATA_BITS - 1:0] data_i;
 output logic [DATA_BITS - 1:0] data_o;
 
@@ -67,6 +67,7 @@ logic [STAGE_ID_BITS-1:0]      stage_id_d;
 logic [LOCATION_BITS-1:0]      location_d;
 logic [RESULT_BITS - 1:0]      result_d;
 logic [31:0]                   ip_addr_d;
+logic                          update_d;
 
 // fields in memory word
 logic [31:0]      prefix_mem;
@@ -108,13 +109,8 @@ always_ff @(posedge clk) begin
     location_d <= location_i;
     ip_addr_d  <= ip_addr_i;
     result_d   <= result_i;
-    update_o   <=  update_i;
+    update_d   <=  update_i;
   end
-end
-
-// ip_addr is passed through
-always_comb begin
-  ip_addr_o = ip_addr_d;
 end
 
 // stage_sel is set when this stage instance is selected
@@ -129,10 +125,8 @@ assign wr_en_o = update_i && (stage_id_i == STAGE_ID);
 assign addr_o = location_i;
 
 always_ff @(posedge clk) begin
-  if (clk) begin
-    if (wr_en_o) begin
-      $display("writing 0x%x to stage %2d location %3d", data_o, stage_id_i, location_i);
-    end
+  if (wr_en_o) begin
+    $display("writing 0x%x to stage %2d location %3d", data_o, stage_id_i, location_i);
   end
 end
 
@@ -159,46 +153,56 @@ always_comb begin
   right_sel = masked_ip_addr > 0;
 end
 
+// ip_addr_o, ip_addr is passed-through
+always_ff @(posedge clk) begin
+  ip_addr_o = ip_addr_d;
+end
+
 /* stage_id_o */
-always_comb begin
+always_ff @(posedge clk) begin
   logic has_child = (has_left && !right_sel) || (has_right && right_sel);
-  if (stage_sel && !update_o && has_child) begin
-    stage_id_o = child_stage_id_mem;
+  if (stage_sel && !update_d && has_child) begin
+    stage_id_o <= child_stage_id_mem;
   end else begin
-    stage_id_o = stage_id_d;
+    stage_id_o <= stage_id_d;
   end
 end
 
 /* location_o */
-always_comb begin
-  if (stage_sel && !update_o) begin
+always_ff @(posedge clk) begin
+  if (stage_sel && !update_d) begin
     if (right_sel)
       // right child is located after left child, always in same stage
-      location_o = child_location_mem + 1;
+      location_o <= child_location_mem + 1;
     else
-      location_o = child_location_mem;
+      location_o <= child_location_mem;
   end else begin
-    location_o = location_d;
+    location_o <= location_d;
   end
 end
 
 /* result_o */
-always_comb begin
-  if (valid_match && !update_o) begin
+always_ff @(posedge clk) begin
+  if (valid_match && !update_d) begin
     /* RESULT_BITS */
-    result_o = { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_d, {PAD_LOCATION_BITS{1'b0}}, location_d, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
+    result_o <= { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_d, {PAD_LOCATION_BITS{1'b0}}, location_d, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
   end else begin
-    result_o = result_d;
+    result_o <= result_d;
   end
 end
 
 /* bit_pos_o */
-always_comb begin
-  if (stage_sel && !update_o) begin
-    bit_pos_o = bit_pos_d + 1;
+always_ff @(posedge clk) begin
+  if (stage_sel && !update_d) begin
+    bit_pos_o <= bit_pos_d + 1;
   end else begin
-    bit_pos_o = bit_pos_d;
+    bit_pos_o <= bit_pos_d;
   end
+end
+
+/* update_o */
+always_ff @(posedge clk) begin
+  update_o <= update_d;
 end
 
 endmodule
