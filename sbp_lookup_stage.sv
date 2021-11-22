@@ -103,14 +103,12 @@ assign data_o = { ip_addr_i/*prefix*/, {PAD_BIT_POS_BITS{1'b0}}, bit_pos_i/*pref
 
 /* stage_id and location delayed */
 always_ff @(posedge clk) begin
-  if (clk) begin
-    bit_pos_d  <= bit_pos_i;
-    stage_id_d <= stage_id_i;
-    location_d <= location_i;
-    ip_addr_d  <= ip_addr_i;
-    result_d   <= result_i;
-    update_d   <=  update_i;
-  end
+  bit_pos_d  <= bit_pos_i;
+  stage_id_d <= stage_id_i;
+  location_d <= location_i;
+  ip_addr_d  <= ip_addr_i;
+  result_d   <= result_i;
+  update_d   <=  update_i;
 end
 
 // stage_sel is set when this stage instance is selected
