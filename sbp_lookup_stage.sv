@@ -144,6 +144,7 @@ end
 
 // right_sel is set when the right child is selected, i.e. bit bit_pos in ip_addr is 1
 logic right_sel;
+`ifdef UNDEFINED
 logic [31:0] mask;
 logic [31:0] masked_ip_addr;
 always_comb begin
@@ -152,6 +153,9 @@ always_comb begin
   masked_ip_addr = ip_addr_d & mask;
   right_sel = masked_ip_addr > 0;
 end
+`else
+assign right_sel = ip_addr_d[31 - bit_pos_d[4:0]];
+`endif
 
 // ip_addr_o, ip_addr is passed-through
 always_ff @(posedge clk) begin
