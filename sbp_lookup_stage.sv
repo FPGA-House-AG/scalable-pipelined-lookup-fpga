@@ -155,7 +155,7 @@ end
 
 // ip_addr_o, ip_addr is passed-through
 always_ff @(posedge clk) begin
-  ip_addr_o = ip_addr_d;
+  ip_addr_o <= ip_addr_d;
 end
 
 /* stage_id_o */
