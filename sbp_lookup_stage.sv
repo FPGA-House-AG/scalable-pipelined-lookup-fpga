@@ -181,11 +181,15 @@ always_ff @(posedge clk) begin
   end
 end
 
+logic [RESULT_BITS - 1:0]      result_ours_d;
 /* result_o */
 always_ff @(posedge clk) begin
+  //result_ours_d <= { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_i, {PAD_LOCATION_BITS{1'b0}}, location_i, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
+  result_ours_d <= { {PAD_STAGE_ID_BITS{1'b0}}, 6'(STAGE_ID), {PAD_LOCATION_BITS{1'b0}}, location_i, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
   if (valid_match && !update_d) begin
     /* RESULT_BITS */
-    result_o <= { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_d, {PAD_LOCATION_BITS{1'b0}}, location_d, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
+    //result_o <= { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_d, {PAD_LOCATION_BITS{1'b0}}, location_d, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
+    result_o <= result_ours_d;
   end else begin
     result_o <= result_d;
   end
