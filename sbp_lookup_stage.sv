@@ -142,10 +142,11 @@ end
 
 // right_sel is set when the right child is selected, i.e. bit bit_pos in ip_addr is 1
 logic right_sel;
-`ifdef UNDEFINED
+`define OLD 1
+`ifdef OLD
 logic [31:0] mask;
 logic [31:0] masked_ip_addr;
-always_comb begin
+always_comb begin : named
   /* is bit at bit_pos in ip_addr set? then select right child */
   mask = 32'b1000_0000_0000_0000_0000_0000_0000_0000 >> bit_pos_d;
   masked_ip_addr = ip_addr_d & mask;
@@ -155,6 +156,9 @@ end
 assign right_sel = ip_addr_d[31 - bit_pos_d[4:0]];
 `endif
 
+
+`define REG_OUT 1
+`ifdef REG_OUT
 // ip_addr_o, ip_addr is passed-through
 always_ff @(posedge clk) begin
   ip_addr_o <= ip_addr_d;
@@ -210,6 +214,63 @@ end
 always_ff @(posedge clk) begin
   update_o <= update_d;
 end
+
+`else // !REG_OUT
+
+// ip_addr_o, ip_addr is passed-through
+always_comb begin
+  ip_addr_o = ip_addr_d;
+end
+
+/* stage_id_o */
+always_comb begin
+  logic has_child = (has_left && !right_sel) || (has_right && right_sel);
+  if (stage_sel && !update_d && has_child) begin
+    stage_id_o = child_stage_id_mem;
+  end else begin
+    stage_id_o = stage_id_d;
+  end
+end
+
+/* location_o */
+always_comb begin
+  if (stage_sel && !update_d) begin
+    if (right_sel)
+      // right child is located after left child, always in same stage
+      location_o = child_location_mem + 1;
+    else
+      location_o = child_location_mem;
+  end else begin
+    location_o = location_d;
+  end
+end
+
+logic [RESULT_BITS - 1:0]      result_ours_d;
+/* result_o */
+always_comb begin
+  result_ours_d = { {PAD_STAGE_ID_BITS{1'b0}}, 6'(STAGE_ID), {PAD_LOCATION_BITS{1'b0}}, location_i, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
+  if (valid_match && !update_d) begin
+    result_o = result_ours_d;
+  end else begin
+    result_o = result_d;
+  end
+end
+
+/* bit_pos_o */
+always_comb begin
+  if (stage_sel && !update_d) begin
+    bit_pos_o = bit_pos_d + 1;
+  end else begin
+    bit_pos_o = bit_pos_d;
+  end
+end
+
+/* update_o */
+always_comb begin
+  update_o = update_d;
+end
+
+`endif
 
 endmodule
 
