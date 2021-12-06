@@ -10,13 +10,14 @@ module sbp_lookup #(
 ) (
   clk, rst,
   /* update interface */
-  upd_i, upd_stage_id_i, upd_location_i, upd_length_i, upd_childs_stage_id_i, upd_childs_location_i, upd_childs_lr_i,
+  upd_i, upd_stage_id_i, upd_location_i, upd_ip_addr_i, upd_length_i, upd_childs_stage_id_i, upd_childs_location_i, upd_childs_lr_i,
   /* lookup request and result */
-  ip_addr_i, result_o, ip_addr_o,
+  lookup_i, ip_addr_i, result_o, ip_addr_o,
   /* lookup request and result on second lookup interface */
   ip_addr2_i, result2_o, ip_addr2_o
 );
 
+/* secondary lookup interface enabled */
 localparam ENABLE_SECOND = 1;
 localparam NUM_LOOKUP = (ENABLE_SECOND? 2: 1);
 
@@ -38,7 +39,8 @@ localparam DATA_BITS = 32 + PAD_BIT_POS_BITS + BIT_POS_BITS + RESULT_BITS;
 
 input wire logic clk;
 input wire logic rst;
-input wire logic [31:0] ip_addr_i, ip_addr2_i;
+input wire logic lookup_i;
+input wire logic [31:0] ip_addr_i, ip_addr2_i, upd_ip_addr_i;
 
 /* update interface, to write to lookup tables */
 input wire logic                     upd_i;
@@ -57,6 +59,7 @@ logic [DATA_BITS - 1:0] rdata [NUM_STAGES][NUM_LOOKUP];
 logic wr_en                   [NUM_STAGES][NUM_LOOKUP];
 logic [DATA_BITS - 1:0] wdata [NUM_STAGES][NUM_LOOKUP];
 
+/* stage output signals (to next stage, or to output) */
 logic [5:0]                 bit_pos  [NUM_STAGES][NUM_LOOKUP], bit_pos_d [NUM_LOOKUP];
 logic [STAGE_ID_BITS - 1:0] stage_id [NUM_STAGES][NUM_LOOKUP], stage_id_d[NUM_LOOKUP];
 logic [LOCATION_BITS - 1:0] location [NUM_STAGES][NUM_LOOKUP], location_d[NUM_LOOKUP];
@@ -67,20 +70,21 @@ logic                       update   [NUM_STAGES][NUM_LOOKUP], update_d  [NUM_LO
 /* choose the inputs for either the lookup or update, depending on update flag */
 always_ff @(posedge clk) begin
   if (clk) begin
-    /* first interface is for lookups and updates */
-    update_d[0] <= upd_i;
+    /* first interface is for lookups and updates, lookups have priority over updates */
+    update_d[0] <= upd_i && !lookup;
+    ip_addr_d [0] <= 0;
+    bit_pos_d [0] <= 0;
+    stage_id_d[0] <= 0;
+    location_d[0] <= 0;
+    result_d  [0] <= 0;
     /* not updating the lookup table? */
-    if (!upd_i) begin
+    if (lookup) begin
       /* perform an IP address lookup */
       ip_addr_d [0] <= ip_addr_i;
-      bit_pos_d [0] <= 0;
-      stage_id_d[0] <= 0;
-      location_d[0] <= 0;
-      result_d  [0] <= 0;
     /* updating the lookup table */
     end else begin
       /* ip_addr is now the prefix to be written */
-      ip_addr_d [0]  <= ip_addr_i;
+      ip_addr_d [0]  <= upd_ip_addr_i;
       /* bit_pos input is re-used as prefix length to be written */
       bit_pos_d [0]  <= upd_length_i;
       /* the entry location to be updated */
@@ -206,7 +210,8 @@ generate
     if (k == 0) begin
       // "NAME00" + (256* (i / 10)) + (i % 10)
       // "" is treated as a number, and digits 00 are added to, resulting in "%02d, i" for i small enough
-      bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("../scalable-pipelined-lookup-c/output/stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
+      //bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("../scalable-pipelined-lookup-c/output/stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
+      bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
         .a_clk (clk),
         .a_wr  (wr_en[i][0]),
         .a_addr( addr[i][0]),

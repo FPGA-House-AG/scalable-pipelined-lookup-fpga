@@ -65,6 +65,7 @@ int main(int argc, char **argv)
 
     tb->ip_addr_i = 0;
     tb->ip_addr2_i = 0;
+    tb->upd_ip_addr_i = 0;
     tb->upd_length_i = 0;
     tb->upd_stage_id_i = 0;
     tb->upd_location_i = 0;
@@ -74,7 +75,7 @@ int main(int argc, char **argv)
     tb->upd_i = 0;
     /* update cycle */
     if (cycles == 1) { 
-      tb->ip_addr_i = 0x327b23c0u;
+      tb->upd_ip_addr_i = 0x327b23c0u;
       tb->upd_length_i = 24;
       /* entry to be written */
       tb->upd_stage_id_i = 3;
