@@ -9,6 +9,7 @@ fpga/mqnic/AU50/fpga_100g/rtl/fpga.v
 
 Before 'cmac_usplus_0 qsfp_cmac_inst' instanstiate sbp_lookup
 
+```verilog
 wire [16:0] lookup_result;
 wire [16:0] lookup_result2;
 sbp_lookup #(.PAD_BITS(2))
@@ -24,10 +25,10 @@ sbp_lookup_inst (
     .result_o(lookup_result),
     .result2_o(lookup_result2)
 );
+```
 
 <...>
 
 At the end, ensure the lookup_results are not optimized out, use all bits:
 
 assign qsfp_led_stat_g = qsfp_rx_status | ^lookup_result | ^lookup_result2;
-
