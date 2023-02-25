@@ -1,13 +1,14 @@
-import scalablePipelinedLookup.{ScalablePipelinedLookup, Config}
-
+import scalablePipelinedLookup.{Config}
+import scalablePipelinedLookup.LookupTop
 import spinal.core._
 import spinal.core.sim._
 
-object ScalablePipelinedLookupSim extends App {
-  Config.sim.compile(ScalablePipelinedLookup()).doSim { dut =>
+object LookupTopSim extends App {
+  Config.sim.compile(LookupTop()).doSim { dut =>
     // Fork a process to generate the reset and the clock on the dut
     dut.clockDomain.forkStimulus(period = 10)
 
+    /*
     var modelState = 0
     for (idx <- 0 to 99) {
       // Drive the dut inputs with random values
@@ -27,5 +28,6 @@ object ScalablePipelinedLookupSim extends App {
         modelState = (modelState + 1) & 0xff
       }
     }
+     */
   }
 }
