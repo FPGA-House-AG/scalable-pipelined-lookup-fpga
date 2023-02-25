@@ -23,13 +23,13 @@ installed, the commands below can be run to use `sbt`.
 
 ```sh
 // To generate the Verilog from the example
-sbt "runMain scalablePipelinedLookup.ScalablePipelinedLookupVerilog"
+sbt "runMain scalablePipelinedLookup.LookupTopVerilog"
 
 // To generate the VHDL from the example
-sbt "runMain scalablePipelinedLookup.ScalablePipelinedLookupVVhdl"
+sbt "runMain scalablePipelinedLookup.LookupTopVVhdl"
 
 // To run the testbench
-sbt "runMain scalablePipelinedLookup.ScalablePipelinedLookupVSim"
+sbt "runMain scalablePipelinedLookup.LookupTopVSim"
 ```
 
 When you really start working with SpinalHDL, it is recommended (both for
