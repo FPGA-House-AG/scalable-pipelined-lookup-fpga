@@ -45,3 +45,5 @@ bin/
 simWorkspace/
 tmp/
 null
+
+!.vscode/launch.json
