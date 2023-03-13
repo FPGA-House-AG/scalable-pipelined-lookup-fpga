@@ -40,6 +40,14 @@ test-spinalhdl:
           - LookupTopSim
           # - LookupTopFormal
 
+test-systemverilog:
+  stage: test
+  script:
+    - cd hw/systemverilog && make sbp_lookup_test
+  artifacts:
+    paths:
+      - "hw/systemverilog/*.vcd"
+
 .style:
   stage: style
   allow_failure: true
