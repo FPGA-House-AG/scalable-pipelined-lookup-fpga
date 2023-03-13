@@ -16,10 +16,11 @@ import utils.PaddedMultiData
   */
 case class LookupDataConfig(
     ipAddrWidth: BitCount = 32 bits,
-    bitPosWidth: BitCount = 6 bits,
-    stageIdWidth: BitCount = 6 bits,
     locationWidth: BitCount = 11 bits
-)
+) {
+  def bitPosWidth = (log2Up(ipAddrWidth.value) + 1) bits
+  def stageIdWidth = bitPosWidth
+}
 
 /** Child select bundle. */
 case class ChildSelBundle() extends Bundle() {
