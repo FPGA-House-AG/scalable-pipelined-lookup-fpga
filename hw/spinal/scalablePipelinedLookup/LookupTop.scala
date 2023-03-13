@@ -96,6 +96,6 @@ case class LookupTop(dualChannel: Boolean = true, config: LookupDataConfig = Loo
   }
 }
 
-object ScalablePipelinedLookupVerilog extends App {
+object LookupTopVerilog extends App {
   Config.spinal.generateVerilog(LookupTop()).printPruned()
 }

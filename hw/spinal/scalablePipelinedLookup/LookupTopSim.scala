@@ -1,5 +1,5 @@
-import scalablePipelinedLookup.{Config}
-import scalablePipelinedLookup.LookupTop
+package scalablePipelinedLookup
+
 import spinal.core._
 import spinal.core.sim._
 

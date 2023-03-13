@@ -1,0 +1,51 @@
+default:
+  tags:
+    - spinalhdl
+
+stages:
+  - build
+  - test
+  - style
+
+.sbt-runmain:
+  variables:
+    SBT_TARGET: OVERRIDE_ME
+  script:
+    - sbt "runMain scalablePipelinedLookup.${SBT_TARGET}"
+  artifacts:
+    paths:
+      - "project/"
+      - "target/"
+      - "simWorkspace/"
+
+build-spinalhdl:
+  stage: build
+  extends: .sbt-runmain
+  variables:
+    SBT_TARGET: LookupTopVerilog
+
+.test:
+  stage: test
+  needs:
+    - build-spinalhdl
+  extends: .sbt-runmain
+
+test-spinalhdl:
+  extends: .sbt-runmain
+  needs:
+    - build-spinalhdl
+  parallel:
+    matrix:
+      - SBT_TARGET:
+          - LookupTopSim
+          # - LookupTopFormal
+
+.style:
+  stage: style
+  allow_failure: true
+  needs: []
+
+style-spinalhdl:
+  extends: .style
+  script:
+    - sbt scalafmtCheck
