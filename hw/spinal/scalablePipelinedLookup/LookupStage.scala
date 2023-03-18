@@ -1,5 +1,7 @@
 package scalablePipelinedLookup
 
+import scala.io.Source
+
 import spinal.core._
 import spinal.lib._
 
@@ -10,13 +12,16 @@ import utils.PaddedMultiData
   * @todo Can be probably simplified by deriving some widths from other.
   *
   * @param ipAddrWidth Width of the IP address. For IPv4 it is 32 bits.
-  * @param bitPosWidth Bit position width.
-  * @param stageIdWidth Stage ID width.
   * @param locationWidth Location width.
+  * @param memInitTemplate Template of memory initialization file. The template
+  *     should have "00" in a place where stage number is supposed to be placed.
+  *     If None, the stage memory is not initialized. The file should be in
+  *     format recognized by Verilog's `readmemh` (can have comments).
   */
 case class LookupDataConfig(
     ipAddrWidth: BitCount = 32 bits,
-    locationWidth: BitCount = 11 bits
+    locationWidth: BitCount = 11 bits,
+    memInitTemplate: Option[String] = Some("hw/gen/meminit/stage00.mem")
 ) {
   def bitPosWidth = (log2Up(ipAddrWidth.value) + 1) bits
   def stageIdWidth = bitPosWidth
@@ -166,7 +171,16 @@ case class LookupStageMem(stageId: Int, channelCount: Int, config: LookupDataCon
   }
 
   /** Dual-port Block RAM memory. */
-  val mem = Mem(LookupMemData(config).asBits, (1 << config.locationWidth.value) - 1)
+  val mem = Mem(LookupMemData(config).asBits, 1 << config.locationWidth.value)
+  if (config.memInitTemplate != None) {
+    mem.init(
+      Source
+        .fromFile(config.memInitTemplate.get.replace("00", f"$stageId%02d"))
+        .getLines()
+        .map(s => B("x" + s.replaceAll("//.*", "").trim))
+        .toSeq
+    )
+  }
   mem.setTechnology(ramBlock)
 
   /** Lookup stage memory channels. */
