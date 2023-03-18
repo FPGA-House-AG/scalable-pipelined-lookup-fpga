@@ -8,26 +8,95 @@ object LookupTopSim extends App {
     // Fork a process to generate the reset and the clock on the dut
     dut.clockDomain.forkStimulus(period = 10)
 
-    /*
-    var modelState = 0
-    for (idx <- 0 to 99) {
-      // Drive the dut inputs with random values
-      dut.io.cond0.randomize()
-      dut.io.cond1.randomize()
+    /** Update request. */
+    def update(
+        valid: Boolean,
+        ipAddr: Int,
+        length: Int,
+        stageId: Int,
+        location: Int,
+        childStageId: Int,
+        childLocation: Int,
+        childHasLeft: Boolean,
+        childHasRight: Boolean
+    ) {
+      dut.io.update.update #= valid
+      dut.io.update.ipAddr #= ipAddr
+      dut.io.update.bitPos #= length
+      dut.io.update.stageId #= stageId
+      dut.io.update.location #= location
+      dut.io.update.child.stageId #= childStageId
+      dut.io.update.child.location #= childLocation
+      dut.io.update.child.childLr.hasLeft #= childHasLeft
+      dut.io.update.child.childLr.hasRight #= childHasRight
 
-      // Wait a rising edge on the clock
-      dut.clockDomain.waitRisingEdge()
-
-      // Check that the dut values match with the reference model ones
-      val modelFlag = modelState == 0 || dut.io.cond1.toBoolean
-      assert(dut.io.state.toInt == modelState)
-      assert(dut.io.flag.toBoolean == modelFlag)
-
-      // Update the reference model value
-      if (dut.io.cond0.toBoolean) {
-        modelState = (modelState + 1) & 0xff
+      if (valid) {
+        println(
+          "Requesting update for "
+            + f"IP=0x$ipAddr%x/$length, stage=$stageId, loc=0x$location%x "
+            + f"for child: stage=$childStageId, loc=0x$childLocation%x, "
+            + s"l/r=$childHasLeft/$childHasRight."
+        )
+        dut.clockDomain.onNextSampling {
+          assert(dut.io.updateAck.toBoolean == true, "Update request should be ackowledged.")
+        }
       }
     }
-     */
+
+    /** Latency from lookup request to result. */
+    val Latency = dut.config.ipAddrWidth.value * 2 + 1
+
+    /** Cycle on which a lookup is perormed. */
+    val LookupCycle = 6
+
+    /** Count of cycles to simulate. */
+    val Cycles = Latency + LookupCycle
+
+    /** Request IP cache used for result check. */
+    val requestIpCache = Array.fill(2)(Array.fill(Cycles)(BigInt(0)))
+
+    for (i <- 0 until Cycles) {
+      // Set defaults.
+      dut.io.lookup.foreach(lookup => {
+        lookup.payload #= 0
+        lookup.valid #= false
+      })
+      update(false, 0, 0, 0, 0, 0, 0, false, false)
+
+      i match {
+        case 1 => {
+          // Request update.
+          update(true, 0x327b23c0, 24, 3, 1, 0x3c, 0x123, false, false)
+        }
+        case LookupCycle => {
+          // Request lookup on both channels.
+          dut.io.lookup(0).valid #= true
+          dut.io.lookup(0).payload #= 0x327b23f0
+
+          dut.io.lookup(1).valid #= true
+          dut.io.lookup(1).payload #= 0x62555800
+        }
+        case _ => {}
+      }
+
+      dut.clockDomain.waitSampling()
+
+      // Populate lookup cache.
+      for ((cache, dutLookup) <- requestIpCache zip dut.io.lookup) {
+        cache(i) = dutLookup.payload.toBigInt
+      }
+
+      // Present lookup result with latency taken into account.
+      if (i >= Latency) {
+        val inOut = requestIpCache.zip(dut.io.result).map { case (cache, result) =>
+          (f"0x${cache(i - Latency + 1)}%08x -> "
+            + f"stage=${result.lookupResult.stageId.toInt}%02d "
+            + f"loc=0x${result.lookupResult.location.toInt}%04x "
+            + s"l/r=${result.lookupResult.childLr.hasLeft.toBigInt}/"
+            + s"${result.lookupResult.childLr.hasRight.toBigInt}")
+        }
+        println(s"Cycle $i: ${inOut(0)}, ${inOut(1)}")
+      }
+    }
   }
 }
