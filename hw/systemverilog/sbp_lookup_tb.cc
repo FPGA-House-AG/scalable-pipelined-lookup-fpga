@@ -17,9 +17,12 @@
 
 #define VCD 1
 
-#define LATENCY (33)
-uint32_t ip_addr_i[LATENCY];
-uint32_t ip_addr2_i[LATENCY];
+#define LATENCY (32*2+1)
+#define LOOKUP_START (6)
+#define CYCLES (LATENCY + LOOKUP_START)
+
+uint32_t ip_addr_i[CYCLES];
+uint32_t ip_addr2_i[CYCLES];
 int ip_addr_index = 0;
 
 int main(int argc, char **argv)
@@ -59,7 +62,7 @@ int main(int argc, char **argv)
   //for (int t = 0; t < (n * x_range); t++)
   int cycles = 0;
 
-  while (cycles < 64)
+  while (cycles < CYCLES)
   {
     // set inputs
 
@@ -88,19 +91,19 @@ int main(int argc, char **argv)
       tb->upd_i = 1;
     }
 #if 0
-    if (cycles == 3) {
-      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x7545e140u;
+    else if (cycles == 3) {
+      tb->ip_addr_i = ip_addr_i[ip_addr_index] = 0x7545e140u;
       tb->lookup_i = 1;
-    } else
+    }
 #endif
-    if (cycles == 6) {
-      tb->ip_addr_i  = ip_addr_i [ip_addr_index % LATENCY] = 0x327b23f0u;
-      tb->ip_addr2_i = ip_addr2_i[ip_addr_index % LATENCY] = 0x62555800u;
+    else if (cycles == LOOKUP_START) {
+      tb->ip_addr_i  = ip_addr_i [ip_addr_index] = 0x327b23f0u;
+      tb->ip_addr2_i = ip_addr2_i[ip_addr_index] = 0x62555800u;
       tb->lookup_i = 1;
     }
 #if 0
     else if (cycles > 4) {
-      tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = (rand() % UINT32_MAX);
+      tb->ip_addr_i = ip_addr_i[ip_addr_index] = (rand() % UINT32_MAX);
       tb->lookup_i = 1;
     }
 #endif
