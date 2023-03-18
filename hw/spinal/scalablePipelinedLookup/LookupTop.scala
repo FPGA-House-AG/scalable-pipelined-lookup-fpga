@@ -45,6 +45,7 @@ case class LookupTop(dualChannel: Boolean = true, config: LookupDataConfig = Loo
     /** Result streams. */
     val result = Vec(master(Stream(LookupResult(config))), channelCount)
   }
+  io.updateAck.setAsReg()
 
   /** Lookup pipeline stages. */
   val stages = Array.tabulate(config.ipAddrWidth.value)(LookupStageMem(_, channelCount, config))
