@@ -11,7 +11,7 @@ module bram_tdp #(
     input   wire    [ADDR-1:0]  a_addr,
     input   wire    [DATA-1:0]  a_din,
     output  reg     [DATA-1:0]  a_dout,
-     
+
     // Port B
     input   wire                b_clk,
     input   wire                b_wr,
@@ -19,10 +19,10 @@ module bram_tdp #(
     input   wire    [DATA-1:0]  b_din,
     output  reg     [DATA-1:0]  b_dout
 );
- 
+
 // Shared memory
 reg [DATA-1:0] mem [(2**ADDR)-1:0];
- 
+
 // Port A
 always @(posedge a_clk) begin
     a_dout      <= mem[a_addr];
@@ -31,7 +31,7 @@ always @(posedge a_clk) begin
         mem[a_addr] <= a_din;
     end
 end
- 
+
 // Port B
 always @(posedge b_clk) begin
     b_dout      <= mem[b_addr];
@@ -40,6 +40,6 @@ always @(posedge b_clk) begin
         mem[b_addr] <= b_din;
     end
 end
- 
+
 endmodule
 `endif

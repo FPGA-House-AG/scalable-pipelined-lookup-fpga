@@ -13,7 +13,7 @@ module bram_tdp #(
   input   wire    [ADDR-1:0]  a_addr,
   input   wire    [DATA-1:0]  a_din,
   output  reg     [DATA-1:0]  a_dout,
-    
+
   // Port B
   input   wire                b_clk,
   input   wire                b_wr,
@@ -21,7 +21,7 @@ module bram_tdp #(
   input   wire    [DATA-1:0]  b_din,
   output  reg     [DATA-1:0]  b_dout
 );
- 
+
  `define INFERRED 1
  `ifdef INFERRED
 // Shared memory
@@ -108,15 +108,15 @@ end
       .injectdbiterrb(0),
       .injectsbiterra(0),
       .injectsbiterrb(0),
-      .regcea(1),   
+      .regcea(1),
       .regceb(1),
       .rsta(0),
-      .rstb(0), 
+      .rstb(0),
       .sleep(0),
       .wea(1),
       .web(1)
    );
-      
+
 `endif
 
 endmodule

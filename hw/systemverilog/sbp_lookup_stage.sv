@@ -11,8 +11,8 @@ module sbp_lookup_stage #(
 ) (
   clk, rst,
   update_i, update_o,
-  ip_addr_i, bit_pos_i, stage_id_i, location_i, result_i, 
-  ip_addr_o, bit_pos_o, stage_id_o, location_o, result_o, 
+  ip_addr_i, bit_pos_i, stage_id_i, location_i, result_i,
+  ip_addr_o, bit_pos_o, stage_id_o, location_o, result_o,
   wr_en_o, addr_o, data_i, data_o
 );
 
@@ -273,4 +273,3 @@ end
 `endif
 
 endmodule
-

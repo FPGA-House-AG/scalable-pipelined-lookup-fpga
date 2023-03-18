@@ -7,4 +7,3 @@ json -o sbp_lookup_stage.json
 #proc; opt; fsm; opt; memory; opt
 
 synth_xilinx
-

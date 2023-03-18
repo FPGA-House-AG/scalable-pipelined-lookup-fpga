@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     tb->upd_childs_lr_i = 0;
     tb->upd_i = 0;
     /* update cycle */
-    if (cycles == 1) { 
+    if (cycles == 1) {
       tb->upd_ip_addr_i = 0x327b23c0u;
       tb->upd_length_i = 24;
       /* entry to be written */
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     if (cycles == 3)
       tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x7545e140u;
     else
-#endif    
+#endif
     if (cycles == 6)
       tb->ip_addr_i  = ip_addr_i [ip_addr_index % LATENCY] = 0x327b23f0u;
       tb->ip_addr2_i = ip_addr2_i[ip_addr_index % LATENCY] = 0x62555800u;
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
     tb->clk = 1;
     tb->eval();
     tfp->dump(timestamp++);
-    
+
     // check outputs
     if (cycles >= LATENCY) {
       printf("0x%08x -> 0x%08x, ", ip_addr_i [(ip_addr_index + LATENCY + 1) % LATENCY], tb->result_o);

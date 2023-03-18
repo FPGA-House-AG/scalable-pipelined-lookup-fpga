@@ -10,4 +10,3 @@ json -o sbp_lookup.json
 #proc; opt; fsm; opt; memory; opt
 
 synth_xilinx
-
