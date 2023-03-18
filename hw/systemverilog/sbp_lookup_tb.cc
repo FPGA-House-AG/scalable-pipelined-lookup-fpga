@@ -65,6 +65,7 @@ int main(int argc, char **argv)
 
     tb->ip_addr_i = 0;
     tb->ip_addr2_i = 0;
+    tb->lookup_i = 0;
     tb->upd_ip_addr_i = 0;
     tb->upd_length_i = 0;
     tb->upd_stage_id_i = 0;
@@ -87,16 +88,21 @@ int main(int argc, char **argv)
       tb->upd_i = 1;
     }
 #if 0
-    if (cycles == 3)
+    if (cycles == 3) {
       tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = 0x7545e140u;
-    else
+      tb->lookup_i = 1;
+    } else
 #endif
-    if (cycles == 6)
+    if (cycles == 6) {
       tb->ip_addr_i  = ip_addr_i [ip_addr_index % LATENCY] = 0x327b23f0u;
       tb->ip_addr2_i = ip_addr2_i[ip_addr_index % LATENCY] = 0x62555800u;
+      tb->lookup_i = 1;
+    }
 #if 0
-    else if (cycles > 4)
+    else if (cycles > 4) {
       tb->ip_addr_i = ip_addr_i[ip_addr_index % LATENCY] = (rand() % UINT32_MAX);
+      tb->lookup_i = 1;
+    }
 #endif
     // falling edge
     tb->clk = 0;
