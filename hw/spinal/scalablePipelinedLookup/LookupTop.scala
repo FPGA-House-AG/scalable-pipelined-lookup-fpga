@@ -70,16 +70,16 @@ case class LookupTop(dualChannel: Boolean = true, config: LookupDataConfig = Loo
       inside.bitPos := 0
       inside.stageId := 0
       inside.location := 0
-      inside.child.assignDontCare()
+      inside.child.assignFromBits(B(0, inside.child.asBits.getWidth bits))
     } otherwise {
       // Add update capability for the first port.
       if (index == 0) {
         inside.valid := io.update.update
         inside.payload := io.update
-        io.updateAck := True
+        io.updateAck := io.update.update
       } else {
         inside.valid := False
-        inside.payload.assignDontCare()
+        inside.payload.assignFromBits(B(0, inside.payload.asBits.getWidth bits))
       }
     }
   }
@@ -91,7 +91,7 @@ case class LookupTop(dualChannel: Boolean = true, config: LookupDataConfig = Loo
 
   // Last stage connection.
   for ((outside, inside) <- io.result zip stages.last.io.next) {
-    outside.valid := inside.valid
+    outside.valid := inside.valid && !inside.payload.update
     outside.ipAddr := inside.ipAddr
     outside.lookupResult := inside.child
   }
