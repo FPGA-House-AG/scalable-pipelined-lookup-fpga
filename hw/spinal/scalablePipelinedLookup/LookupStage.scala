@@ -66,6 +66,14 @@ object LookupStageFlow {
   def apply(config: LookupDataConfig) = Flow(LookupStageBundle(config))
 }
 
+/** Flow between LookupMem and LookupResult. */
+object LookupInterstageFlow {
+  def apply(config: LookupDataConfig) = Flow(new Bundle {
+    val lookup = LookupStageBundle(config)
+    val memOutput = LookupMemData(config)
+  })
+}
+
 /** Lookup memory interface. */
 case class LookupMemBundle(config: LookupDataConfig) extends Bundle with IMasterSlave {
   val writeEnable = Bool()
@@ -79,20 +87,19 @@ case class LookupMemBundle(config: LookupDataConfig) extends Bundle with IMaster
   }
 }
 
-/** Lookup pipeline stage.
+/** Memory lookup pipeline stage.
   *
   * @param stageId Stage index.
   * @param config Stage configuration.
-  * @param registerOutput Add a register stage for the output.
   */
-case class LookupStage(stageId: Int, config: LookupDataConfig, registerOutput: Boolean = true) extends Component {
+case class LookupMemStage(stageId: Int, config: LookupDataConfig) extends Component {
   val io = new Bundle {
 
     /** Interface to the previous stage. */
     val prev = slave(LookupStageFlow(config))
 
-    /** Interface to the next stage. */
-    val next = master(LookupStageFlow(config))
+    /** Interface to LookupResultStage. */
+    val interstage = master(LookupInterstageFlow(config))
 
     /** Interface to memory port. */
     val mem = master(LookupMemBundle(config))
@@ -104,58 +111,82 @@ case class LookupStage(stageId: Int, config: LookupDataConfig, registerOutput: B
   io.mem.dataWrite.child := io.prev.child
 
   // Write to stage memory if update is requested.
-  io.mem.writeEnable := io.prev.valid && io.prev.update && (io.prev.stageId === stageId)
+  io.mem.writeEnable := (
+    io.prev.valid && io.prev.update && (io.prev.stageId === stageId)
+  )
   io.mem.addr := io.prev.location
+  // TODO: Print information in simulation.
 
-  val delayed = Delay(io.prev, 1)
+  val lookupDelay = io.prev.m2sPipe
+  io.interstage.valid := lookupDelay.valid
+  io.interstage.lookup := lookupDelay.payload
+  io.interstage.memOutput := io.mem.dataRead
+}
 
-  val stageSel = delayed.stageId === stageId
-  val prefixMatch =
-    ((delayed.ipAddr ^ io.mem.dataRead.prefix) >> (U(config.ipAddrWidth.value) - io.mem.dataRead.prefixLen)) === 0
-  val validMatch = prefixMatch && stageSel
+/** Result lookup pipeline stage.
+  *
+  * @param stageId Stage index.
+  * @param config Stage configuration.
+  */
+case class LookupResultStage(
+    stageId: Int,
+    config: LookupDataConfig
+) extends Component {
+  val io = new Bundle {
+
+    /** Interface to LookupMemStage. */
+    val interstage = slave(LookupInterstageFlow(config))
+
+    /** Interface to the next stage. */
+    val next = master(LookupStageFlow(config))
+  }
+
+  val lookup = io.interstage.lookup
+  val memOutput = io.interstage.memOutput
+
+  val stageSel = lookup.stageId === stageId
+  val prefixShift = config.ipAddrWidth - memOutput.prefixLen
+  val prefixMatch = ((lookup.ipAddr ^ memOutput.prefix) >> prefixShift) === 0
 
   // Right node is selected when bit at bitPos in ipAddr is 1.
-  val rightSel = delayed.ipAddr(config.ipAddrWidth.value - 1 - delayed.bitPos.resize(delayed.bitPos.getBitsWidth - 1))
+  val rightSelBit = config.ipAddrWidth - 1 - lookup.bitPos.resize(config.bitPosWidth - 1)
+  val rightSel = lookup.ipAddr(rightSelBit)
 
   // IP address is passed through.
-  io.next.ipAddr := delayed.ipAddr
+  io.next.ipAddr := lookup.ipAddr
 
-  val childLr = io.mem.dataRead.child.childLr
-  val hasChild = (childLr.hasLeft && !rightSel) || (childLr.hasRight && rightSel)
+  val childLr = memOutput.child.childLr
+  val hasChild = (
+    (childLr.hasLeft && !rightSel) || (childLr.hasRight && rightSel)
+  )
+
+  val lookupActive = lookup.stageId === stageId && !lookup.update
 
   io.next.stageId := Mux(
-    stageSel && !delayed.update && hasChild,
-    io.mem.dataRead.child.stageId,
-    delayed.stageId
+    lookupActive && hasChild,
+    memOutput.child.stageId,
+    lookup.stageId
   )
 
   io.next.location := Mux(
-    stageSel && !delayed.update,
-    io.mem.dataRead.child.location + Mux(rightSel, 1, 0),
-    delayed.location
+    lookupActive,
+    memOutput.child.location + Mux(rightSel, 1, 0),
+    lookup.location
   )
 
-  when(validMatch && !delayed.update) {
+  when(lookupActive && prefixMatch) {
     io.next.child.stageId := stageId
-    io.next.child.location := delayed.location
+    io.next.child.location := lookup.location
     io.next.child.childLr.hasLeft := False
     io.next.child.childLr.hasRight := False
   } otherwise {
-    io.next.child := delayed.child
+    io.next.child := lookup.child
   }
 
-  io.next.bitPos := Mux(
-    stageSel && !delayed.update,
-    delayed.bitPos + 1,
-    delayed.bitPos
-  )
+  io.next.bitPos := Mux(lookupActive, lookup.bitPos + 1, lookup.bitPos)
 
-  io.next.update := delayed.update
-  io.next.valid := delayed.valid
-
-  if (registerOutput) {
-    io.next.setAsReg()
-  }
+  io.next.update := lookup.update
+  io.next.valid := io.interstage.valid
 }
 
 /** Lookup pipeline stage with block RAM memory.
@@ -163,10 +194,20 @@ case class LookupStage(stageId: Int, config: LookupDataConfig, registerOutput: B
   * @param stageId Stage index.
   * @param channelCount Count of channels.
   * @param config Lookup configuration.
+  * @param registerOutput Add a register stage for the `io.next` Flow.
   */
-case class LookupStageMem(stageId: Int, channelCount: Int, config: LookupDataConfig) extends Component {
+case class LookupStagesWithMem(
+    stageId: Int,
+    channelCount: Int,
+    config: LookupDataConfig,
+    registerOutput: Boolean = true
+) extends Component {
   val io = new Bundle {
+
+    /** Interface to the previous stage. */
     val prev = Vec(slave(LookupStageFlow(config)), channelCount)
+
+    /** Interface to the next stage. */
     val next = Vec(master(LookupStageFlow(config)), channelCount)
   }
 
@@ -181,21 +222,36 @@ case class LookupStageMem(stageId: Int, channelCount: Int, config: LookupDataCon
         .toSeq
     )
   }
-  mem.setTechnology(ramBlock)
 
   /** Lookup stage memory channels. */
-  val channels = Array.fill(channelCount)(LookupStage(stageId, config))
-  for ((channel, prev, next) <- channels lazyZip io.prev lazyZip io.next) {
+  val channels = Array.fill(channelCount) {
+    (LookupMemStage(stageId, config), LookupResultStage(stageId, config))
+  }
+
+  for (
+    (((memStage, resultStage), prev, next), index) <-
+      channels lazyZip io.prev lazyZip io.next zipWithIndex
+  ) {
     // Connect memory interface.
-    channel.io.mem.dataRead assignFromBits mem.readWriteSync(
-      channel.io.mem.addr,
-      channel.io.mem.dataWrite.asBits,
-      True,
-      channel.io.mem.writeEnable
-    )
+    if (index == 0) {
+      // Only the first channel is read/write.
+      memStage.io.mem.dataRead assignFromBits mem.readWriteSync(
+        memStage.io.mem.addr,
+        memStage.io.mem.dataWrite.asBits,
+        True,
+        memStage.io.mem.writeEnable
+      )
+    } else {
+      memStage.io.mem.dataRead assignFromBits mem.readSync(memStage.io.mem.addr)
+    }
 
     // Connect lookup interfaces.
-    prev >> channel.io.prev
-    channel.io.next >> next
+    prev >> memStage.io.prev
+    memStage.io.interstage >> resultStage.io.interstage
+    if (registerOutput) {
+      resultStage.io.next >-> next
+    } else {
+      resultStage.io.next >> next
+    }
   }
 }

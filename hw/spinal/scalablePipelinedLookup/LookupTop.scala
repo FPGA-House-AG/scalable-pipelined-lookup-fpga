@@ -48,7 +48,7 @@ case class LookupTop(dualChannel: Boolean = true, config: LookupDataConfig = Loo
   io.updateAck.setAsReg()
 
   /** Lookup pipeline stages. */
-  val stages = Array.tabulate(config.ipAddrWidth.value)(LookupStageMem(_, channelCount, config))
+  val stages = Array.tabulate(config.ipAddrWidth)(LookupStagesWithMem(_, channelCount, config))
 
   // First stage connection.
   for (((outside, inside), index) <- io.lookup zip stages(0).io.prev zipWithIndex) {
