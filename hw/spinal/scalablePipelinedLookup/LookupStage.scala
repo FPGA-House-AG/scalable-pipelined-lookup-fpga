@@ -19,11 +19,11 @@ import utils.PaddedMultiData
   *     format recognized by Verilog's `readmemh` (can have comments).
   */
 case class LookupDataConfig(
-    ipAddrWidth: BitCount = 32 bits,
-    locationWidth: BitCount = 11 bits,
+    ipAddrWidth: Int = 32,
+    locationWidth: Int = 11,
     memInitTemplate: Option[String] = Some("hw/gen/meminit/stage00.mem")
 ) {
-  def bitPosWidth = (log2Up(ipAddrWidth.value) + 1) bits
+  def bitPosWidth = log2Up(ipAddrWidth) + 1
   def stageIdWidth = bitPosWidth
 }
 
@@ -39,25 +39,25 @@ case class ChildSelBundle() extends Bundle() {
 
 /** Lookup child information. */
 case class LookupChildBundle(config: LookupDataConfig, padWidth: Int = 4) extends Bundle with PaddedMultiData {
-  val stageId = UInt(config.stageIdWidth)
-  val location = UInt(config.locationWidth)
+  val stageId = UInt(config.stageIdWidth bits)
+  val location = UInt(config.locationWidth bits)
   val childLr = ChildSelBundle()
 }
 
 /** Lookup memory entry. */
 case class LookupMemData(config: LookupDataConfig, padWidth: Int = 4) extends Bundle with PaddedMultiData {
-  val prefix = Bits(config.ipAddrWidth)
-  val prefixLen = UInt(config.bitPosWidth)
+  val prefix = Bits(config.ipAddrWidth bits)
+  val prefixLen = UInt(config.bitPosWidth bits)
   val child = LookupChildBundle(config)
 }
 
 /** Lookup stage main I/O bundle. */
 case class LookupStageBundle(config: LookupDataConfig) extends Bundle {
   val update = Bool()
-  val ipAddr = Bits(config.ipAddrWidth)
-  val bitPos = UInt(config.bitPosWidth)
-  val stageId = UInt(config.stageIdWidth)
-  val location = UInt(config.locationWidth)
+  val ipAddr = Bits(config.ipAddrWidth bits)
+  val bitPos = UInt(config.bitPosWidth bits)
+  val stageId = UInt(config.stageIdWidth bits)
+  val location = UInt(config.locationWidth bits)
   val child = LookupChildBundle(config)
 }
 
@@ -69,7 +69,7 @@ object LookupStageFlow {
 /** Lookup memory interface. */
 case class LookupMemBundle(config: LookupDataConfig) extends Bundle with IMasterSlave {
   val writeEnable = Bool()
-  val addr = UInt(config.locationWidth)
+  val addr = UInt(config.locationWidth bits)
   val dataWrite = LookupMemData(config)
   val dataRead = LookupMemData(config)
 
@@ -171,7 +171,7 @@ case class LookupStageMem(stageId: Int, channelCount: Int, config: LookupDataCon
   }
 
   /** Dual-port Block RAM memory. */
-  val mem = Mem(LookupMemData(config).asBits, 1 << config.locationWidth.value)
+  val mem = Mem(LookupMemData(config).asBits, 1 << config.locationWidth)
   if (config.memInitTemplate != None) {
     mem.init(
       Source

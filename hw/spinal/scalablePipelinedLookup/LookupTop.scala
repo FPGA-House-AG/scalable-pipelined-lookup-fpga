@@ -7,7 +7,7 @@ import spinal.lib._
 case class LookupResult(config: LookupDataConfig) extends Bundle {
 
   /** IP address associated with the result. */
-  val ipAddr = Bits(config.ipAddrWidth)
+  val ipAddr = Bits(config.ipAddrWidth bits)
 
   /** Last pipeline stage output. */
   val lookupResult = LookupChildBundle(config)
@@ -40,7 +40,7 @@ case class LookupTop(dualChannel: Boolean = true, config: LookupDataConfig = Loo
     val updateAck = out Bool ()
 
     /** Lookup request streams. */
-    val lookup = Vec(slave(Stream(Bits(config.ipAddrWidth))), channelCount)
+    val lookup = Vec(slave(Stream(Bits(config.ipAddrWidth bits))), channelCount)
 
     /** Result streams. */
     val result = Vec(master(Stream(LookupResult(config))), channelCount)
