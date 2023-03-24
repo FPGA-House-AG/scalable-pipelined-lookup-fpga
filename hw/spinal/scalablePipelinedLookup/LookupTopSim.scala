@@ -37,8 +37,14 @@ object LookupTopSim extends App {
             + f"for child: stage=$childStageId, loc=0x$childLocation%x, "
             + s"l/r=$childHasLeft/$childHasRight."
         )
-        dut.clockDomain.onNextSampling {
-          assert(dut.io.updateAck.toBoolean == true, "Update request should be ackowledged.")
+        var counter = 0
+        dut.clockDomain.onSamplingWhile {
+          counter += 1
+          assert(
+            counter < 2 || dut.io.updateAck.toBoolean == true,
+            "Update request should be ackowledged."
+          )
+          counter == 2
         }
       }
     }
