@@ -1,5 +1,7 @@
 package scalablePipelinedLookup
 
+import scala.io.AnsiColor
+
 import spinal.core._
 import spinal.core.sim._
 
@@ -56,10 +58,14 @@ object LookupTopSim extends App {
     val LookupCycle = 6
 
     /** Count of cycles to simulate. */
-    val Cycles = Latency + LookupCycle
+    val Cycles = Latency + LookupCycle + 2
 
-    /** Request IP cache used for result check. */
-    val requestIpCache = Array.fill(2)(Array.fill(Cycles)(BigInt(0)))
+    /** Request IP cache used for result check.
+      *
+      * First is the IP address which is looked up. Second is the information if
+      * it is valid.
+      */
+    val requestIpCache = Array.fill(2)(Array.fill(Cycles)(BigInt(0), false))
 
     for (i <- 0 until Cycles) {
       // Set defaults.
@@ -74,7 +80,7 @@ object LookupTopSim extends App {
           // Request update.
           update(true, 0x327b23c0L, 24, 3, 1, 0x3c, 0x123, false, false)
         }
-        case LookupCycle => {
+        case `LookupCycle` => {
           // Request lookup on both channels.
           dut.io.lookup(0).valid #= true
           dut.io.lookup(0).payload #= 0x327b23f0L
@@ -89,18 +95,22 @@ object LookupTopSim extends App {
 
       // Populate lookup cache.
       for ((cache, dutLookup) <- requestIpCache zip dut.io.lookup) {
-        cache(i) = dutLookup.payload.toBigInt
+        cache(i) = (dutLookup.payload.toBigInt, dutLookup.valid.toBoolean)
       }
 
       // Present lookup result with latency taken into account.
       if (i >= Latency) {
-        val inOut = requestIpCache.zip(dut.io.result).map { case (cache, result) =>
-          (f"0x${cache(i - Latency + 1)}%08x -> "
-            + f"stage=${result.lookupResult.stageId.toInt}%02d "
-            + f"loc=0x${result.lookupResult.location.toInt}%04x "
-            + s"l/r=${result.lookupResult.childLr.hasLeft.toBigInt}/"
-            + s"${result.lookupResult.childLr.hasRight.toBigInt}")
-        }
+        val inOut = requestIpCache
+          .zip(dut.io.result)
+          .map { case (cache, result) =>
+            ((if (cache(i - Latency + 1)._2) AnsiColor.GREEN else AnsiColor.RED)
+              + f"0x${cache(i - Latency + 1)._1}%08x -> "
+              + f"stage=${result.lookupResult.stageId.toInt}%02d "
+              + f"loc=0x${result.lookupResult.location.toInt}%04x "
+              + s"l/r=${result.lookupResult.childLr.hasLeft.toBigInt}/"
+              + s"${result.lookupResult.childLr.hasRight.toBigInt}"
+              + AnsiColor.RESET)
+          }
         println(s"Cycle $i: ${inOut(0)}, ${inOut(1)}")
       }
     }
