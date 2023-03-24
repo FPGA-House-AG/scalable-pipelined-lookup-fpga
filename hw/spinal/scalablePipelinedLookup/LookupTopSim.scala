@@ -11,7 +11,7 @@ object LookupTopSim extends App {
     /** Update request. */
     def update(
         valid: Boolean,
-        ipAddr: Int,
+        ipAddr: Long,
         length: Int,
         stageId: Int,
         location: Int,
@@ -19,7 +19,7 @@ object LookupTopSim extends App {
         childLocation: Int,
         childHasLeft: Boolean,
         childHasRight: Boolean
-    ) {
+    ): Unit = {
       dut.io.update.update #= valid
       dut.io.update.ipAddr #= ipAddr
       dut.io.update.bitPos #= length
@@ -66,15 +66,15 @@ object LookupTopSim extends App {
       i match {
         case 1 => {
           // Request update.
-          update(true, 0x327b23c0, 24, 3, 1, 0x3c, 0x123, false, false)
+          update(true, 0x327b23c0L, 24, 3, 1, 0x3c, 0x123, false, false)
         }
         case LookupCycle => {
           // Request lookup on both channels.
           dut.io.lookup(0).valid #= true
-          dut.io.lookup(0).payload #= 0x327b23f0
+          dut.io.lookup(0).payload #= 0x327b23f0L
 
           dut.io.lookup(1).valid #= true
-          dut.io.lookup(1).payload #= 0x62555800
+          dut.io.lookup(1).payload #= 0x62555800L
         }
         case _ => {}
       }
