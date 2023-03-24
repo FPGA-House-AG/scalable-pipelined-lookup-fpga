@@ -30,11 +30,11 @@ case class LookupDataConfig(
 /** Child select bundle. */
 case class ChildSelBundle() extends Bundle() {
 
-  /** Child has left leaf. */
-  val hasLeft = Bool()
-
   /** Child has right leaf. */
   val hasRight = Bool()
+
+  /** Child has left leaf. */
+  val hasLeft = Bool()
 }
 
 /** Lookup child information. */
