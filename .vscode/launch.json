@@ -9,6 +9,12 @@
             "request": "launch",
             "name": "LookupTopVerilog",
             "mainClass": "scalablePipelinedLookup.LookupTopVerilog"
+        },
+        {
+            "type": "scala",
+            "request": "launch",
+            "name": "LookupTopSim",
+            "mainClass": "scalablePipelinedLookup.LookupTopSim"
         }
     ]
 }
