@@ -4,6 +4,7 @@ import scala.io.Source
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.bram._
 
 import utils.PaddedMultiData
 
@@ -25,6 +26,9 @@ case class LookupDataConfig(
 ) {
   def bitPosWidth = log2Up(ipAddrWidth) + 1
   def stageIdWidth = bitPosWidth
+
+  def memDataWidth = LookupMemData(this).asBits.getBitsWidth
+  def bramConfig = BRAMConfig(memDataWidth, locationWidth)
 }
 
 /** Child select bundle. */
@@ -74,25 +78,17 @@ object LookupInterstageFlow {
   })
 }
 
-/** Lookup memory interface. */
-case class LookupMemBundle(config: LookupDataConfig) extends Bundle with IMasterSlave {
-  val writeEnable = Bool()
-  val addr = UInt(config.locationWidth bits)
-  val dataWrite = LookupMemData(config)
-  val dataRead = LookupMemData(config)
-
-  override def asMaster(): Unit = {
-    out(writeEnable, addr, dataWrite)
-    in(dataRead)
-  }
-}
-
 /** Memory lookup pipeline stage.
   *
   * @param stageId Stage index.
   * @param config Stage configuration.
+  * @param writeChannel Enable memory write channel.
   */
-case class LookupMemStage(stageId: Int, config: LookupDataConfig) extends Component {
+case class LookupMemStage(
+    stageId: Int,
+    config: LookupDataConfig,
+    writeChannel: Boolean
+) extends Component {
   val io = new Bundle {
 
     /** Interface to the previous stage. */
@@ -102,25 +98,32 @@ case class LookupMemStage(stageId: Int, config: LookupDataConfig) extends Compon
     val interstage = master(LookupInterstageFlow(config))
 
     /** Interface to memory port. */
-    val mem = master(LookupMemBundle(config))
+    val mem = master(BRAM(config.bramConfig))
   }
 
-  // Data written to lookup table when updating.
-  io.mem.dataWrite.prefix := io.prev.ipAddr
-  io.mem.dataWrite.prefixLen := io.prev.bitPos
-  io.mem.dataWrite.child := io.prev.child
+  if (writeChannel) {
+    // Data written to lookup table when updating.
+    val writeData = LookupMemData(config)
+    writeData.setAsComb()
+    writeData.prefix := io.prev.ipAddr
+    writeData.prefixLen := io.prev.bitPos
+    writeData.child := io.prev.child
+    io.mem.wrdata := writeData.asBits
 
-  // Write to stage memory if update is requested.
-  io.mem.writeEnable := (
-    io.prev.valid && io.prev.update && (io.prev.stageId === stageId)
-  )
+    // Write to stage memory if update is requested.
+    io.mem.we.setAllTo(
+      io.prev.valid && io.prev.update && (io.prev.stageId === stageId)
+    )
+  }
+
+  io.mem.en := True
   io.mem.addr := io.prev.location
   // TODO: Print information in simulation.
 
-  val lookupDelay = io.prev.m2sPipe
-  io.interstage.valid := lookupDelay.valid
-  io.interstage.lookup := lookupDelay.payload
-  io.interstage.memOutput := io.mem.dataRead
+  val lookupDelayed = io.prev.m2sPipe
+  io.interstage.valid := lookupDelayed.valid
+  io.interstage.lookup := lookupDelayed.payload
+  io.interstage.memOutput assignFromBits io.mem.rddata
 }
 
 /** Result lookup pipeline stage.
@@ -223,26 +226,28 @@ case class LookupStagesWithMem(
     )
   }
 
-  /** Lookup stage memory channels. */
-  val channels = Array.fill(channelCount) {
-    (LookupMemStage(stageId, config), LookupResultStage(stageId, config))
+  /** Lookup stage memory channels.
+    *
+    * Enable write channel only for the first channel.
+    */
+  val channels = Array.tabulate(channelCount) { i =>
+    (LookupMemStage(stageId, config, i == 0), LookupResultStage(stageId, config))
   }
 
   for (
-    (((memStage, resultStage), prev, next), index) <-
-      channels lazyZip io.prev lazyZip io.next zipWithIndex
+    ((memStage, resultStage), prev, next) <-
+      channels lazyZip io.prev lazyZip io.next
   ) {
     // Connect memory interface.
-    if (index == 0) {
-      // Only the first channel is read/write.
-      memStage.io.mem.dataRead assignFromBits mem.readWriteSync(
+    if (memStage.writeChannel) {
+      memStage.io.mem.rddata := mem.readWriteSync(
         memStage.io.mem.addr,
-        memStage.io.mem.dataWrite.asBits,
-        True,
-        memStage.io.mem.writeEnable
+        memStage.io.mem.wrdata,
+        memStage.io.mem.en,
+        memStage.io.mem.we.andR
       )
     } else {
-      memStage.io.mem.dataRead assignFromBits mem.readSync(memStage.io.mem.addr)
+      memStage.io.mem.rddata := mem.readSync(memStage.io.mem.addr, memStage.io.mem.en)
     }
 
     // Connect lookup interfaces.
