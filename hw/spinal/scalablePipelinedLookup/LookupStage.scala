@@ -69,6 +69,8 @@ case class LookupStageBundle(config: LookupDataConfig) extends Bundle {
   val stageId = config.StageId()
   val location = config.Location()
   val child = LookupChildBundle(config)
+
+  // TODO: Split to lookup and update Flows.
 }
 
 /** Lookup stage flow bundle. */

@@ -4,15 +4,16 @@ import scala.io.AnsiColor
 
 import spinal.core._
 import spinal.core.sim._
+import spinal.lib.bus.amba4.axilite.sim.AxiLite4Driver
 
 object LookupTopSim extends App {
   Config.sim.compile(LookupTop()).doSim { dut =>
     // Fork a process to generate the reset and the clock on the dut
     dut.clockDomain.forkStimulus(period = 10)
+    val axiDriver = new AxiLite4Driver(dut.io.axi, dut.clockDomain)
 
     /** Update request. */
     def update(
-        valid: Boolean,
         ipAddr: Long,
         length: Int,
         stageId: Int,
@@ -22,40 +23,58 @@ object LookupTopSim extends App {
         childHasLeft: Boolean,
         childHasRight: Boolean
     ): Unit = {
-      dut.io.update.update #= valid
-      dut.io.update.ipAddr #= ipAddr
-      dut.io.update.bitPos #= length
-      dut.io.update.stageId #= stageId
-      dut.io.update.location #= location
-      dut.io.update.child.stageId #= childStageId
-      dut.io.update.child.location #= childLocation
-      dut.io.update.child.childLr.hasLeft #= childHasLeft
-      dut.io.update.child.childLr.hasRight #= childHasRight
+      SpinalInfo(
+        "Requesting update for "
+          + f"IP=0x$ipAddr%x/$length, stage=$stageId, loc=0x$location%x "
+          + f"for child: stage=$childStageId, loc=0x$childLocation%x, "
+          + s"l/r=$childHasLeft/$childHasRight."
+      )
 
-      if (valid) {
-        println(
-          "Requesting update for "
-            + f"IP=0x$ipAddr%x/$length, stage=$stageId, loc=0x$location%x "
-            + f"for child: stage=$childStageId, loc=0x$childLocation%x, "
-            + s"l/r=$childHasLeft/$childHasRight."
-        )
-        var counter = 0
-        dut.clockDomain.onSamplingWhile {
-          counter += 1
-          assert(
-            counter < 2 || dut.io.updateAck.toBoolean == true,
-            "Update request should be ackowledged."
-          )
-          counter == 2
-        }
-      }
+      assert(
+        axiDriver.read(dut.AxiAddress.UPDATE_STATUS) == 0,
+        "Update cannot be pending before starting a new one."
+      )
+
+      axiDriver.write(dut.AxiAddress.UDPATE_ADDR, (location << 16) | stageId)
+      axiDriver.write(dut.AxiAddress.UPDATE_PREFIX, ipAddr)
+      axiDriver.write(dut.AxiAddress.UPDATE_PREFIX_INFO, length)
+      axiDriver.write(
+        dut.AxiAddress.UPDATE_CHILD,
+        (childHasLeft.toInt << 25) | (childHasRight.toInt << 24) | (childLocation << 8) | childStageId
+      )
+
+      axiDriver.write(dut.AxiAddress.UPDATE_COMMAND, 0)
     }
+
+    SpinalInfo("TEST 1: See if lookup blocks update.")
+
+    // Block the update by requesting lookup.
+    dut.io.lookup.foreach(lookup => {
+      lookup.payload #= 0
+      lookup.valid #= true
+    })
+    dut.clockDomain.waitSampling()
+
+    // Try to update.
+    update(0x327b23c0L, 24, 3, 1, 0x3c, 0x123, false, false)
+    assert(
+      axiDriver.read(dut.AxiAddress.UPDATE_STATUS) == 1,
+      "Update should be blocked during lookup."
+    )
+
+    // Unblock the update.
+    dut.io.lookup.foreach(lookup => {
+      lookup.payload #= 0
+      lookup.valid #= false
+    })
+
+    SpinalInfo("TEST 2: Lookup on both channels.")
 
     /** Latency from lookup request to result. */
     val Latency = dut.config.ipAddrWidth * 2 + 1
 
-    /** Cycle on which a lookup is perormed. */
-    val LookupCycle = 6
+    /** Cycle on which a lookup will be perormed. */
+    val LookupCycle = 1
 
     /** Count of cycles to simulate. */
     val Cycles = Latency + LookupCycle + 2
@@ -73,25 +92,16 @@ object LookupTopSim extends App {
         lookup.payload #= 0
         lookup.valid #= false
       })
-      update(false, 0, 0, 0, 0, 0, 0, false, false)
 
-      i match {
-        case 1 => {
-          // Request update.
-          update(true, 0x327b23c0L, 24, 3, 1, 0x3c, 0x123, false, false)
-        }
-        case `LookupCycle` => {
-          // Request lookup on both channels.
-          dut.io.lookup(0).valid #= true
-          dut.io.lookup(0).payload #= 0x327b23f0L
+      if (i == LookupCycle) {
+        // Request lookup on both channels.
+        dut.io.lookup(0).valid #= true
+        dut.io.lookup(0).payload #= 0x327b23f0L
 
-          dut.io.lookup(1).valid #= true
-          dut.io.lookup(1).payload #= 0x62555800L
-        }
-        case _ => {}
+        dut.io.lookup(1).valid #= true
+        dut.io.lookup(1).payload #= 0x62555800L
       }
 
-      dut.clockDomain.waitSampling()
 
       // Populate lookup cache.
       for ((cache, dutLookup) <- requestIpCache zip dut.io.lookup) {
@@ -113,6 +123,8 @@ object LookupTopSim extends App {
           }
         println(s"Cycle $i: ${inOut(0)}, ${inOut(1)}")
       }
+
+      dut.clockDomain.waitSampling()
     }
   }
 }
