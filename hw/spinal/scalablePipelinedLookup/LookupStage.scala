@@ -24,8 +24,14 @@ case class LookupDataConfig(
     locationWidth: Int = 11,
     memInitTemplate: Option[String] = Some("hw/gen/meminit/stage00.mem")
 ) {
+  def IpAddr() = Bits(ipAddrWidth bits)
+  def Location() = UInt(locationWidth bits)
+
   def bitPosWidth = log2Up(ipAddrWidth) + 1
+  def BitPos() = UInt(bitPosWidth bits)
+
   def stageIdWidth = bitPosWidth
+  def StageId() = UInt(stageIdWidth bits)
 
   def memDataWidth = LookupMemData(this).asBits.getBitsWidth
   def bramConfig = BRAMConfig(memDataWidth, locationWidth)
@@ -43,25 +49,25 @@ case class ChildSelBundle() extends Bundle() {
 
 /** Lookup child information. */
 case class LookupChildBundle(config: LookupDataConfig, padWidth: Int = 4) extends Bundle with PaddedMultiData {
-  val stageId = UInt(config.stageIdWidth bits)
-  val location = UInt(config.locationWidth bits)
+  val stageId = config.StageId()
+  val location = config.Location()
   val childLr = ChildSelBundle()
 }
 
 /** Lookup memory entry. */
 case class LookupMemData(config: LookupDataConfig, padWidth: Int = 4) extends Bundle with PaddedMultiData {
-  val prefix = Bits(config.ipAddrWidth bits)
-  val prefixLen = UInt(config.bitPosWidth bits)
+  val prefix = config.IpAddr()
+  val prefixLen = config.BitPos()
   val child = LookupChildBundle(config)
 }
 
 /** Lookup stage main I/O bundle. */
 case class LookupStageBundle(config: LookupDataConfig) extends Bundle {
   val update = Bool()
-  val ipAddr = Bits(config.ipAddrWidth bits)
-  val bitPos = UInt(config.bitPosWidth bits)
-  val stageId = UInt(config.stageIdWidth bits)
-  val location = UInt(config.locationWidth bits)
+  val ipAddr = config.IpAddr()
+  val bitPos = config.BitPos()
+  val stageId = config.StageId()
+  val location = config.Location()
   val child = LookupChildBundle(config)
 }
 

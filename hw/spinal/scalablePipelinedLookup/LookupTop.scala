@@ -7,7 +7,7 @@ import spinal.lib._
 case class LookupResult(config: LookupDataConfig) extends Bundle {
 
   /** IP address associated with the result. */
-  val ipAddr = Bits(config.ipAddrWidth bits)
+  val ipAddr = config.IpAddr()
 
   /** Last pipeline stage output. */
   val lookupResult = LookupChildBundle(config)
