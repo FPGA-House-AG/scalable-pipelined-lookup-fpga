@@ -243,8 +243,8 @@ case class LookupStagesWithMem(
   }
 
   for (
-    ((memStage, resultStage), prev, next) <-
-      channels lazyZip io.prev lazyZip io.next
+    (((memStage, resultStage), prev), next) <-
+      channels zip io.prev zip io.next
   ) {
     // Connect memory interface.
     if (memStage.writeChannel) {
