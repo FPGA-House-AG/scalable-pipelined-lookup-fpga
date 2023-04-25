@@ -5,6 +5,9 @@ import spinal.lib._
 import spinal.lib.bus.misc._
 import spinal.lib.bus.amba4.axi._
 
+// Note this is an experimental fork of LookupTop, for the purpose of BusSlaveFactory
+// May get deleted later, undecided yet.
+
 // companion object for case class
 object LookupAddress {
   // generate VHDL and Verilog
@@ -19,12 +22,12 @@ object LookupAddress {
   }
 }
 
-/** Scalable Pipelined Lookup top-level module.
+/** Scalable Pipelined Lookup top-level module. (fork of LookupTop)
   *
   * As a base, the SystemVerilog implementation was used. It can be found in the
   * `hw/systemverilog` directory.
   *
-  * @todo Wrap with AXI4-Lite interface.
+  * @todo Wrap with BusSlaveFactory driveFrom(), and implement an Axi4 derivative.
   *
   * @param dualChannel Dual channel lookup.
   * @param config Lookup configuration.
