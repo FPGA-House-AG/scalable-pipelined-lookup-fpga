@@ -7,15 +7,6 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif._
 import spinal.lib.bus.regif.AccessType._
 
-/** Bundle representing a lookup result. */
-case class LookupResult(config: LookupDataConfig) extends Bundle {
-
-  /** IP address associated with the result. */
-  val ipAddr = config.IpAddr()
-
-  /** Last pipeline stage output. */
-  val lookupResult = LookupChildBundle(config)
-}
 
 /** Scalable Pipelined Lookup top-level module.
   *
