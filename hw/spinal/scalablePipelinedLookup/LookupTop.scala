@@ -45,7 +45,7 @@ case class LookupTop(
 
   /** AXI4-Lite peripheral address space. */
   object AxiAddress extends Enumeration {
-    val UDPATE_ADDR = 0x00
+    val UPDATE_ADDR = 0x00
     val UPDATE_PREFIX = 0x04
     val UPDATE_PREFIX_INFO = 0x14
     val UPDATE_CHILD = 0x18
@@ -57,7 +57,7 @@ case class LookupTop(
   val regs = new Area {
     val regif = BusInterface(io.axi, axiMapping)
 
-    val updateAddr = regif.newRegAt(AxiAddress.UDPATE_ADDR, "Update interface address")
+    val updateAddr = regif.newRegAt(AxiAddress.UPDATE_ADDR, "Update interface address")
     val stageId =
       updateAddr.field(config.StageId(), WO, "Stage ID to insert the data to.")
     val location =

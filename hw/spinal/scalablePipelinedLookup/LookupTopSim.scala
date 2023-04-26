@@ -35,7 +35,7 @@ object LookupTopSim extends App {
         "Update cannot be pending before starting a new one."
       )
 
-      axiDriver.write(dut.AxiAddress.UDPATE_ADDR, (location << 16) | stageId)
+      axiDriver.write(dut.AxiAddress.UPDATE_ADDR, (location << 16) | stageId)
       axiDriver.write(dut.AxiAddress.UPDATE_PREFIX, ipAddr)
       axiDriver.write(dut.AxiAddress.UPDATE_PREFIX_INFO, length)
       axiDriver.write(
