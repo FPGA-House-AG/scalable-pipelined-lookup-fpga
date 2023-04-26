@@ -34,7 +34,8 @@ object LookupTopSim extends App {
         axiDriver.read(dut.AxiAddress.UPDATE_STATUS) == 0,
         "Update cannot be pending before starting a new one."
       )
-
+      // @TODO verify, but seems like AxiLite4Driver write() does not assert b.ready
+      dut.io.axi.b.ready #= true
       axiDriver.write(dut.AxiAddress.UPDATE_ADDR, (location << 16) | stageId)
       axiDriver.write(dut.AxiAddress.UPDATE_PREFIX, ipAddr)
       axiDriver.write(dut.AxiAddress.UPDATE_PREFIX_INFO, length)
@@ -44,6 +45,7 @@ object LookupTopSim extends App {
       )
 
       axiDriver.write(dut.AxiAddress.UPDATE_COMMAND, 0)
+      dut.io.axi.b.ready #= false
     }
 
     SpinalInfo("TEST 1: See if lookup blocks update.")
