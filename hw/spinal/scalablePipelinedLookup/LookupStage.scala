@@ -159,7 +159,7 @@ case class LookupResultStage(
   val prefixShift = config.ipAddrWidth - memOutput.prefixLen
   val prefixMatch = ((lookup.ipAddr ^ memOutput.prefix) >> prefixShift) === 0
 
-  // Right node is selected when bit at bitPos in ipAddr is 1.
+  // Right node is selected when bit at bitPos in ipAddr is 1, starting from most significant bit
   val rightSelBit = config.ipAddrWidth - 1 - lookup.bitPos.resize(config.bitPosWidth - 1)
   val rightSel = lookup.ipAddr(rightSelBit)
 
