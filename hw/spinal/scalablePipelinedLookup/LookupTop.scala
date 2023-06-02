@@ -7,7 +7,6 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif._
 import spinal.lib.bus.regif.AccessType._
 
-
 /** Scalable Pipelined Lookup top-level module.
   *
   * As a base, the SystemVerilog implementation was used. It can be found in the
@@ -31,9 +30,9 @@ case class LookupTop(
   val io = new Bundle {
 
     /** AXI4 interface for update and status.
-     *
-     * TODO: Move to regular Axi4 once RegIf gains support for it.
-     */
+      *
+      * TODO: Move to regular Axi4 once RegIf gains support for it.
+      */
     val axi = slave(AxiLite4(axiConfig))
 
     /** Lookup request streams. */
