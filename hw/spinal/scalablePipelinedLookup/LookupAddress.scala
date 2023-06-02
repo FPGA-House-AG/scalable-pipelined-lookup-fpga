@@ -58,7 +58,7 @@ case class LookupAddress(
 
   /** Lookup pipeline stages. */
   val stages = Array.tabulate(config.ipAddrWidth) { stageId =>
-    LookupStagesWithMem(StageConfig(config, stageId), channelCount)
+    LookupStagesWithMem(StageConfig(config, stageId), channelCount, false, true)
   }
 
   // First stage connection.
