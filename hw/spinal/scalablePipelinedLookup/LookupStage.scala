@@ -122,6 +122,9 @@ case class LookupMemStage(
     io.mem.we.setAllTo(
       io.prev.valid && io.prev.update && (io.prev.stageId === stageId)
     )
+  } else {
+    io.mem.wrdata.clearAll()
+    io.mem.we.clearAll()
   }
 
   io.mem.en := True
@@ -225,6 +228,8 @@ case class LookupStagesWithMem(
 
   /** Dual-port Block RAM memory. */
   val mem = Mem(LookupMemData(config).asBits, 1 << config.locationWidth)
+  mem.addAttribute(new AttributeString("RAM_STYLE", "ultra"))
+
   if (config.memInitTemplate != None) {
     mem.init(
       Source
@@ -248,16 +253,13 @@ case class LookupStagesWithMem(
       channels zip io.prev zip io.next
   ) {
     // Connect memory interface.
-    if (memStage.writeChannel) {
-      memStage.io.mem.rddata := mem.readWriteSync(
-        memStage.io.mem.addr,
-        memStage.io.mem.wrdata,
-        memStage.io.mem.en,
-        memStage.io.mem.we.andR
-      )
-    } else {
-      memStage.io.mem.rddata := mem.readSync(memStage.io.mem.addr, memStage.io.mem.en)
-    }
+    memStage.io.mem.rddata := mem.readWriteSync(
+      memStage.io.mem.addr,
+      memStage.io.mem.wrdata,
+      memStage.io.mem.en,
+      memStage.io.mem.we.andR,
+      duringWrite = dontRead
+    )
 
     // Connect lookup interfaces.
     prev >> memStage.io.prev
