@@ -113,7 +113,9 @@ case class LookupTop(
   }
 
   /** Lookup pipeline stages. */
-  val stages = Array.tabulate(config.ipAddrWidth)(LookupStagesWithMem(_, channelCount, config))
+  val stages = Array.tabulate(config.ipAddrWidth) { stageId =>
+    LookupStagesWithMem(StageConfig(config, stageId), channelCount)
+  }
 
   // First stage connection.
   for (((outside, inside), index) <- io.lookup zip stages(0).io.prev zipWithIndex) {

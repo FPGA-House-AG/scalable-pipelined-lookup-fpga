@@ -33,8 +33,23 @@ case class LookupDataConfig(
   def stageIdWidth = bitPosWidth
   def StageId() = UInt(stageIdWidth bits)
 
-  def memDataWidth = LookupMemData(this).asBits.getBitsWidth
-  def bramConfig = BRAMConfig(memDataWidth, locationWidth)
+}
+
+/** Lookup stage configuration.
+  *
+  * @param dataConfig General data configuration.
+  * @param stageId ID of the stage.
+  */
+case class StageConfig(dataConfig: LookupDataConfig, stageId: Int) {
+
+  /** RAM data width. */
+  def memDataWidth = LookupMemData(dataConfig).asBits.getBitsWidth
+
+  /** RAM address width. */
+  def memAddrWidth = if ((stageId + 1) < dataConfig.locationWidth) stageId + 1 else dataConfig.locationWidth
+
+  /** BRAM interface configuration. */
+  def bramConfig = BRAMConfig(memDataWidth, memAddrWidth)
 }
 
 /** Child select bundle. */
@@ -88,22 +103,20 @@ object LookupInterstageFlow {
 
 /** Memory lookup pipeline stage.
   *
-  * @param stageId Stage index.
   * @param config Stage configuration.
   * @param writeChannel Enable memory write channel.
   */
 case class LookupMemStage(
-    stageId: Int,
-    config: LookupDataConfig,
+    config: StageConfig,
     writeChannel: Boolean
 ) extends Component {
   val io = new Bundle {
 
     /** Interface to the previous stage. */
-    val prev = slave(LookupStageFlow(config))
+    val prev = slave(LookupStageFlow(config.dataConfig))
 
     /** Interface to LookupResultStage. */
-    val interstage = master(LookupInterstageFlow(config))
+    val interstage = master(LookupInterstageFlow(config.dataConfig))
 
     /** Interface to memory port. */
     val mem = master(BRAM(config.bramConfig))
@@ -111,7 +124,7 @@ case class LookupMemStage(
 
   if (writeChannel) {
     // Data written to lookup table when updating.
-    val writeData = LookupMemData(config)
+    val writeData = LookupMemData(config.dataConfig)
     writeData.setAsComb()
     writeData.prefix := io.prev.ipAddr
     writeData.prefixLen := io.prev.bitPos
@@ -120,7 +133,7 @@ case class LookupMemStage(
 
     // Write to stage memory if update is requested.
     io.mem.we.setAllTo(
-      io.prev.valid && io.prev.update && (io.prev.stageId === stageId)
+      io.prev.valid && io.prev.update && (io.prev.stageId === config.stageId)
     )
   } else {
     io.mem.wrdata.clearAll()
@@ -128,7 +141,8 @@ case class LookupMemStage(
   }
 
   io.mem.en := True
-  io.mem.addr := io.prev.location
+  // Previous stage location is resized due to the RAM size optimization.
+  io.mem.addr := io.prev.location.resized
   // TODO: Print information in simulation.
 
   val lookupDelayed = io.prev.m2sPipe
@@ -139,31 +153,27 @@ case class LookupMemStage(
 
 /** Result lookup pipeline stage.
   *
-  * @param stageId Stage index.
   * @param config Stage configuration.
   */
-case class LookupResultStage(
-    stageId: Int,
-    config: LookupDataConfig
-) extends Component {
+case class LookupResultStage(config: StageConfig) extends Component {
   val io = new Bundle {
 
     /** Interface to LookupMemStage. */
-    val interstage = slave(LookupInterstageFlow(config))
+    val interstage = slave(LookupInterstageFlow(config.dataConfig))
 
     /** Interface to the next stage. */
-    val next = master(LookupStageFlow(config))
+    val next = master(LookupStageFlow(config.dataConfig))
   }
 
   val lookup = io.interstage.lookup
   val memOutput = io.interstage.memOutput
 
-  val stageSel = lookup.stageId === stageId
-  val prefixShift = config.ipAddrWidth - memOutput.prefixLen
+  val stageSel = lookup.stageId === config.stageId
+  val prefixShift = config.dataConfig.ipAddrWidth - memOutput.prefixLen
   val prefixMatch = ((lookup.ipAddr ^ memOutput.prefix) >> prefixShift) === 0
 
   // Right node is selected when bit at bitPos in ipAddr is 1, starting from most significant bit
-  val rightSelBit = config.ipAddrWidth - 1 - lookup.bitPos.resize(config.bitPosWidth - 1)
+  val rightSelBit = config.dataConfig.ipAddrWidth - 1 - lookup.bitPos.resize(config.dataConfig.bitPosWidth - 1)
   val rightSel = lookup.ipAddr(rightSelBit)
 
   // IP address is passed through.
@@ -174,7 +184,7 @@ case class LookupResultStage(
     (childLr.hasLeft && !rightSel) || (childLr.hasRight && rightSel)
   )
 
-  val lookupActive = lookup.stageId === stageId && !lookup.update
+  val lookupActive = lookup.stageId === config.stageId && !lookup.update
 
   io.next.stageId := Mux(
     lookupActive && hasChild,
@@ -189,7 +199,7 @@ case class LookupResultStage(
   )
 
   when(lookupActive && prefixMatch) {
-    io.next.child.stageId := stageId
+    io.next.child.stageId := config.stageId
     io.next.child.location := lookup.location
     io.next.child.childLr.hasLeft := False
     io.next.child.childLr.hasRight := False
@@ -205,35 +215,32 @@ case class LookupResultStage(
 
 /** Lookup pipeline stage with block RAM memory.
   *
-  * @param stageId Stage index.
+  * @param config Lookup stage configuration.
   * @param channelCount Count of channels.
-  * @param config Lookup configuration.
   * @param registerOutput Add a register stage for the `io.next` Flow.
   */
 case class LookupStagesWithMem(
-    stageId: Int,
+    config: StageConfig,
     channelCount: Int,
-    config: LookupDataConfig,
     registerInterstage: Boolean = false,
     registerOutput: Boolean = true
 ) extends Component {
   val io = new Bundle {
 
     /** Interface to the previous stage. */
-    val prev = Vec(slave(LookupStageFlow(config)), channelCount)
+    val prev = Vec(slave(LookupStageFlow(config.dataConfig)), channelCount)
 
     /** Interface to the next stage. */
-    val next = Vec(master(LookupStageFlow(config)), channelCount)
+    val next = Vec(master(LookupStageFlow(config.dataConfig)), channelCount)
   }
 
   /** Dual-port Block RAM memory. */
-  val mem = Mem(LookupMemData(config).asBits, 1 << config.locationWidth)
-  mem.addAttribute(new AttributeString("RAM_STYLE", "ultra"))
+  val mem = Mem(LookupMemData(config.dataConfig).asBits, 1 << config.memAddrWidth)
 
-  if (config.memInitTemplate != None) {
+  if (config.dataConfig.memInitTemplate != None) {
     mem.init(
       Source
-        .fromFile(config.memInitTemplate.get.replace("00", f"$stageId%02d"))
+        .fromFile(config.dataConfig.memInitTemplate.get.replace("00", f"${config.stageId}%02d"))
         .getLines()
         .map(s => B("x" + s.replaceAll("//.*", "").trim))
         .toSeq
@@ -245,7 +252,7 @@ case class LookupStagesWithMem(
     * Enable write channel only for the first channel.
     */
   val channels = Array.tabulate(channelCount) { i =>
-    (LookupMemStage(stageId, config, i == 0), LookupResultStage(stageId, config))
+    (LookupMemStage(config, i == 0), LookupResultStage(config))
   }
 
   for (
