@@ -46,7 +46,15 @@ case class StageConfig(dataConfig: LookupDataConfig, stageId: Int) {
   def memDataWidth = LookupMemData(dataConfig).asBits.getBitsWidth
 
   /** RAM address width. */
-  def memAddrWidth = if ((stageId + 1) < dataConfig.locationWidth) stageId + 1 else dataConfig.locationWidth
+  def memAddrWidth = {
+    if (dataConfig.memInitTemplate != None) {
+      dataConfig.locationWidth
+    } else if ((stageId + 1) < dataConfig.locationWidth) {
+      stageId + 1
+    } else {
+      dataConfig.locationWidth
+    }
+  }
 
   /** BRAM interface configuration. */
   def bramConfig = BRAMConfig(memDataWidth, memAddrWidth)
