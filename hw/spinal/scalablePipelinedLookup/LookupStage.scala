@@ -217,13 +217,15 @@ case class LookupResultStage(config: StageConfig) extends Component {
   *
   * @param config Lookup stage configuration.
   * @param channelCount Count of channels.
+  * @param registerInterstage Add a register stage between memory fetch and data
+  *                           processing stages.
   * @param registerOutput Add a register stage for the `io.next` Flow.
   */
 case class LookupStagesWithMem(
     config: StageConfig,
     channelCount: Int,
-    registerInterstage: Boolean = false,
-    registerOutput: Boolean = true
+    registerInterstage: Boolean,
+    registerOutput: Boolean
 ) extends Component {
   val io = new Bundle {
 
@@ -268,13 +270,14 @@ case class LookupStagesWithMem(
       duringWrite = dontRead
     )
 
-    // Connect lookup interfaces.
+    // Connect lookup interfaces with optional register stages.
     prev >> memStage.io.prev
     if (registerInterstage) {
       memStage.io.interstage >-> resultStage.io.interstage
     } else {
       memStage.io.interstage >> resultStage.io.interstage
     }
+
     if (registerOutput) {
       resultStage.io.next >-> next
     } else {

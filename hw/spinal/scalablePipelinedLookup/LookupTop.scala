@@ -12,16 +12,21 @@ import spinal.lib.bus.regif.AccessType._
   * As a base, the SystemVerilog implementation was used. It can be found in the
   * `hw/systemverilog` directory.
   *
-  * @todo Wrap with AXI4-Lite interface.
-  *
   * @param dualChannel Dual channel lookup.
   * @param config Lookup configuration.
+  * @param axiConfig AXI4-Lite configuration.
+  * @param axiMapping AXI4 size mapping.
+  * @param registerInterstage Add a register stage between memory fetch and data
+  *                           processing stages.
+  * @param registerOutput Add a register stage at the output of stage flows.
   */
 case class LookupTop(
     dualChannel: Boolean = true,
     config: LookupDataConfig = LookupDataConfig(),
     axiConfig: AxiLite4Config = AxiLite4Config(32, 32),
-    axiMapping: SizeMapping = SizeMapping(0x0L, 32 Bytes)
+    axiMapping: SizeMapping = SizeMapping(0x0L, 32 Bytes),
+    registerInterstage: Boolean = false,
+    registerOutput: Boolean = true
 ) extends Component {
 
   /** Count of memory channels. */
@@ -114,7 +119,7 @@ case class LookupTop(
 
   /** Lookup pipeline stages. */
   val stages = Array.tabulate(config.ipAddrWidth) { stageId =>
-    LookupStagesWithMem(StageConfig(config, stageId), channelCount)
+    LookupStagesWithMem(StageConfig(config, stageId), channelCount, registerInterstage, registerOutput)
   }
 
   // First stage connection.
