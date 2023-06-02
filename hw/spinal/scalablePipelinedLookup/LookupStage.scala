@@ -211,6 +211,7 @@ case class LookupStagesWithMem(
     stageId: Int,
     channelCount: Int,
     config: LookupDataConfig,
+    registerInterstage: Boolean = false,
     registerOutput: Boolean = true
 ) extends Component {
   val io = new Bundle {
@@ -260,7 +261,11 @@ case class LookupStagesWithMem(
 
     // Connect lookup interfaces.
     prev >> memStage.io.prev
-    memStage.io.interstage >> resultStage.io.interstage
+    if (registerInterstage) {
+      memStage.io.interstage >-> resultStage.io.interstage
+    } else {
+      memStage.io.interstage >> resultStage.io.interstage
+    }
     if (registerOutput) {
       resultStage.io.next >-> next
     } else {
