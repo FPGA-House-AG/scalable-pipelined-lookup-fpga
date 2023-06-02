@@ -163,5 +163,7 @@ case class LookupTop(
 }
 
 object LookupTopVerilog extends App {
-  Config.spinal.generateVerilog(LookupTop()).printPruned()
+  Config.spinal
+    .generateVerilog(LookupTop(config = LookupDataConfig(memInitTemplate = None)))
+    .printPruned()
 }
