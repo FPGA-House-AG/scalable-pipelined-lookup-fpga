@@ -4,7 +4,6 @@ import scala.io.Source
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bram._
 
 import utils.PaddedMultiData
 
@@ -56,8 +55,8 @@ case class StageConfig(dataConfig: LookupDataConfig, stageId: Int) {
     }
   }
 
-  /** BRAM interface configuration. */
-  def bramConfig = BRAMConfig(memDataWidth, memAddrWidth)
+  /** MemIf interface configuration. */
+  def memIfConfig = MemIfConfig(memDataWidth, memAddrWidth)
 }
 
 /** Child select bundle. */
@@ -127,7 +126,7 @@ case class LookupMemStage(
     val interstage = master(LookupInterstageFlow(config.dataConfig))
 
     /** Interface to memory port. */
-    val mem = master(BRAM(config.bramConfig))
+    val mem = master(MemIf(config.memIfConfig))
   }
 
   if (writeChannel) {
@@ -140,12 +139,10 @@ case class LookupMemStage(
     io.mem.wrdata := writeData.asBits
 
     // Write to stage memory if update is requested.
-    io.mem.we.setAllTo(
-      io.prev.valid && io.prev.update && (io.prev.stageId === config.stageId)
-    )
+    io.mem.we := io.prev.valid && io.prev.update && (io.prev.stageId === config.stageId)
   } else {
     io.mem.wrdata.clearAll()
-    io.mem.we.clearAll()
+    io.mem.we := False
   }
 
   io.mem.en := True
@@ -274,7 +271,7 @@ case class LookupStagesWithMem(
       memStage.io.mem.addr,
       memStage.io.mem.wrdata,
       memStage.io.mem.en,
-      memStage.io.mem.we.andR,
+      memStage.io.mem.we,
       duringWrite = dontRead
     )
 
