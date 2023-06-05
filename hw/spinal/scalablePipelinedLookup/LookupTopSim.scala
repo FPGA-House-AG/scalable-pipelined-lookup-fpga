@@ -18,6 +18,7 @@ object LookupTopSim extends App {
         length: Int,
         stageId: Int,
         location: Int,
+        result: Int,
         childStageId: Int,
         childLocation: Int,
         childHasLeft: Boolean,
@@ -25,8 +26,8 @@ object LookupTopSim extends App {
     ): Unit = {
       SpinalInfo(
         "Requesting update for "
-          + f"IP=0x$ipAddr%x/$length, stage=$stageId, loc=0x$location%x "
-          + f"for child: stage=$childStageId, loc=0x$childLocation%x, "
+          + f"IP=0x$ipAddr%x/$length, result=$result @stage=$stageId, loc=0x$location%x "
+          + f"with child(s) @stage=$childStageId, loc=0x$childLocation%x, "
           + s"l/r=$childHasLeft/$childHasRight."
       )
 
@@ -43,6 +44,7 @@ object LookupTopSim extends App {
         dut.AxiAddress.UPDATE_CHILD,
         (childHasLeft.toInt << 25) | (childHasRight.toInt << 24) | (childLocation << 8) | childStageId
       )
+      axiDriver.write(dut.AxiAddress.UPDATE_RESULT, result)
 
       axiDriver.write(dut.AxiAddress.UPDATE_COMMAND, 0)
       dut.io.axi.b.ready #= false
@@ -58,7 +60,7 @@ object LookupTopSim extends App {
     dut.clockDomain.waitSampling()
 
     // Try to update.
-    update(0x327b23c0L, 24, 3, 1, 0x3c, 0x123, false, false)
+    update(0x327b23c0L, 24, 3, 1, 10/*result*/, 4, 5, true, false)
     assert(
       axiDriver.read(dut.AxiAddress.UPDATE_STATUS) == 1,
       "Update should be blocked during lookup."
@@ -117,10 +119,7 @@ object LookupTopSim extends App {
           .map { case (cache, result) =>
             ((if (cache(i - Latency + 1)._2) AnsiColor.GREEN else AnsiColor.RED)
               + f"0x${cache(i - Latency + 1)._1}%08x -> "
-              + f"stage=${result.lookupResult.stageId.toInt}%02d "
-              + f"loc=0x${result.lookupResult.location.toInt}%04x "
-              + s"l/r=${result.lookupResult.childLr.hasLeft.toBigInt}/"
-              + s"${result.lookupResult.childLr.hasRight.toBigInt}"
+              + f"result=0x${result.lookupResult.toInt}%08x "
               + AnsiColor.RESET)
           }
         println(s"Cycle $i: ${inOut(0)}, ${inOut(1)}")

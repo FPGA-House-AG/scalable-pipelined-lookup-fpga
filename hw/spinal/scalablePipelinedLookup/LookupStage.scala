@@ -32,6 +32,8 @@ case class LookupDataConfig(
   def stageIdWidth = bitPosWidth
   def StageId() = UInt(stageIdWidth bits)
 
+  def resultWidth = 10
+  def Result() = UInt(resultWidth bits)
 }
 
 /** Lookup stage configuration.
@@ -43,6 +45,8 @@ case class StageConfig(dataConfig: LookupDataConfig, stageId: Int) {
 
   /** RAM data width. */
   def memDataWidth = LookupMemData(dataConfig).asBits.getBitsWidth
+
+  printf("StageConfig() memDataWidth = %d bits\n", memDataWidth)
 
   /** RAM address width. */
   def memAddrWidth = {
@@ -69,8 +73,8 @@ case class ChildSelBundle() extends Bundle() {
   val hasLeft = Bool()
 }
 
-/** Lookup child information. */
-case class LookupChildBundle(config: LookupDataConfig, padWidth: Int = 4) extends Bundle with PaddedMultiData {
+/** Pointer to the left and right child, and which child(s) is/are present there */
+case class LookupChildBundle(config: LookupDataConfig, padWidth: Int = 1) extends Bundle with PaddedMultiData {
   val stageId = config.StageId()
   val location = config.Location()
   val childLr = ChildSelBundle()
@@ -78,20 +82,29 @@ case class LookupChildBundle(config: LookupDataConfig, padWidth: Int = 4) extend
 
 /** Lookup memory entry. */
 case class LookupMemData(config: LookupDataConfig, padWidth: Int = 4) extends Bundle with PaddedMultiData {
+  // IP address prefix at this tree node
   val prefix = config.IpAddr()
   val prefixLen = config.BitPos()
-  val child = LookupChildBundle(config)
+  // result if this is best prefix match
+  val result = config.Result()
+  // pointer to childs of this tree node
+  val child = LookupChildBundle(config, padWidth)
 }
 
 /** Lookup stage main I/O bundle. */
 case class LookupStageBundle(config: LookupDataConfig) extends Bundle {
   val update = Bool()
+  // IP address during lookups, IP address prefix during updates
   val ipAddr = config.IpAddr()
+  // bit position during lookups, prefix length during updates
   val bitPos = config.BitPos()
+  // next lookup location during lookups, destination write location during updates
   val stageId = config.StageId()
   val location = config.Location()
+  // used only during updates
   val child = LookupChildBundle(config)
-
+  // best/last match result during lookups, result value during updates
+  val result = config.Result()
   // TODO: Split to lookup and update Flows.
 }
 
@@ -136,6 +149,7 @@ case class LookupMemStage(
     writeData.prefix := io.prev.ipAddr
     writeData.prefixLen := io.prev.bitPos
     writeData.child := io.prev.child
+    writeData.result := io.prev.result
     io.mem.wrdata := writeData.asBits
 
     // Write to stage memory if update is requested.
@@ -204,13 +218,13 @@ case class LookupResultStage(config: StageConfig) extends Component {
   )
 
   when(lookupActive && prefixMatch) {
-    io.next.child.stageId := config.stageId
-    io.next.child.location := lookup.location
-    io.next.child.childLr.hasLeft := False
-    io.next.child.childLr.hasRight := False
+    // pass (best) result from this stage if a valid prefix match
+    io.next.result := memOutput.result
   } otherwise {
-    io.next.child := lookup.child
+    // pass earlier result in all other cases (stage not addressed, no lookup, no match)
+    io.next.result := lookup.result
   }
+  io.next.child := lookup.child
 
   io.next.bitPos := Mux(lookupActive, lookup.bitPos + 1, lookup.bitPos)
 

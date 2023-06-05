@@ -10,5 +10,5 @@ case class LookupResult(config: LookupDataConfig) extends Bundle {
   val ipAddr = config.IpAddr()
 
   /** Last pipeline stage output. */
-  val lookupResult = LookupChildBundle(config)
+  val lookupResult = config.Result()
 }

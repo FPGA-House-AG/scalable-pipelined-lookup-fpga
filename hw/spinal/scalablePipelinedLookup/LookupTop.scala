@@ -53,6 +53,7 @@ case class LookupTop(
     val UPDATE_PREFIX = 0x04
     val UPDATE_PREFIX_INFO = 0x14
     val UPDATE_CHILD = 0x18
+    val UPDATE_RESULT = 0x1C
     val UPDATE_COMMAND = 0x20
     val UPDATE_STATUS = 0x24
   }
@@ -90,6 +91,10 @@ case class LookupTop(
     val childHasLeft =
       updateChild.fieldAt(25, Bool, WO, "Child has left child.")
 
+    val updateResult = regif.newRegAt(AxiAddress.UPDATE_RESULT, "Result information.")
+    val result =
+      updatePrefixInfo.field(config.Result(), WO, "Result.")
+
     val updateCommand = regif.newRegAt(AxiAddress.UPDATE_COMMAND, "Command register to execute update command.")
     val updateRequest = RegInit(False)
     when(updateCommand.hitDoWrite) {
@@ -110,6 +115,7 @@ case class LookupTop(
       updateData.bitPos := prefixLen
       updateData.stageId := stageId
       updateData.location := location
+      updateData.result := result
       updateData.child.stageId := childStageId
       updateData.child.location := childLocation
       updateData.child.childLr.hasLeft := childHasLeft
@@ -132,6 +138,7 @@ case class LookupTop(
       inside.bitPos := 0
       inside.stageId := 0
       inside.location := 0
+      inside.result := 0
       inside.child.assignFromBits(B(0, inside.child.asBits.getWidth bits))
     } otherwise {
       /* For now, update is possible on the first channel only, when no lookup is
@@ -164,7 +171,7 @@ case class LookupTop(
   for ((outside, inside) <- io.result zip stages.last.io.next) {
     outside.valid := inside.valid && !inside.payload.update
     outside.ipAddr := inside.ipAddr
-    outside.lookupResult := inside.child
+    outside.lookupResult := inside.result
   }
 }
 

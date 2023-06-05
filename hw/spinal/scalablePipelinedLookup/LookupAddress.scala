@@ -70,6 +70,7 @@ case class LookupAddress(
     inside.bitPos := 0
     inside.stageId := 0
     inside.location := 0
+    inside.result := 0
     inside.child.assignFromBits(B(0, inside.child.asBits.getWidth bits))
   }
 
@@ -82,7 +83,7 @@ case class LookupAddress(
   for ((outside, inside) <- io.result zip stages.last.io.next) {
     outside.valid := inside.valid && !inside.payload.update
     outside.ipAddr := inside.ipAddr
-    outside.lookupResult := inside.child
+    outside.lookupResult := inside.result
   }
 
   // address decoding assumes slave-local addresses
