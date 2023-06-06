@@ -77,7 +77,7 @@ object LookupTopSim extends App {
     /** Latency from lookup request to result. */
     val Latency = dut.config.ipAddrWidth * 2 + 1
 
-    /** Cycle on which a lookup will be perormed. */
+    /** Cycle on which a lookup will be performed. */
     val LookupCycle = 1
 
     /** Count of cycles to simulate. */
