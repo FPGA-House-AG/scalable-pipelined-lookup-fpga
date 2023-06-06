@@ -149,6 +149,7 @@ case class LookupTop(
           inside.valid := regs.updateRequest
           inside.payload := regs.updateData
           regs.updatePending := False
+          regs.updateRequest := False
         } otherwise {
           inside.valid := False
           inside.payload.assignFromBits(B(0, inside.payload.asBits.getWidth bits))
