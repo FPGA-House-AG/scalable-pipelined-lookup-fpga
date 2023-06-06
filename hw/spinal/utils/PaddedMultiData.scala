@@ -28,7 +28,7 @@ trait PaddedMultiData extends MultiData {
     for ((eName, e) <- elements) {
       val ePadded = e.asBits.resize(paddedBitsWidth(e))
       if (ret == null.asInstanceOf[Object]) ret = ePadded
-      else ret = ePadded ## ret
+      else ret = ret ## ePadded
     }
     if (ret.asInstanceOf[Object] == null) ret = Bits(0 bits)
     ret
