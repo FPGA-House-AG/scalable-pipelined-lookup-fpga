@@ -130,6 +130,7 @@ case class LookupTop(
 
   // First stage connection.
   for (((outside, inside), index) <- io.lookup zip stages(0).io.prev zipWithIndex) {
+    /* lookup? */
     when(outside.valid) {
       // Prioritise lookup request.
       inside.valid := True
@@ -140,13 +141,14 @@ case class LookupTop(
       inside.location := 0
       inside.result := 0
       inside.child.assignFromBits(B(0, inside.child.asBits.getWidth bits))
+    /* no lookup */
     } otherwise {
       /* For now, update is possible on the first channel only, when no lookup is
        * performed. Thus, it is required to have an update acknowledge signal.
        */
       if (index == 0) {
         when(regs.updateRequest) {
-          inside.valid := regs.updateRequest
+          inside.valid := True
           inside.payload := regs.updateData
           regs.updatePending := False
           regs.updateRequest := False
