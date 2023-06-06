@@ -93,7 +93,7 @@ case class LookupTop(
 
     val updateResult = regif.newRegAt(AxiAddress.UPDATE_RESULT, "Result information.")
     val result =
-      updatePrefixInfo.field(config.Result(), WO, "Result.")
+      updateResult.field(config.Result(), WO, "Result.")
 
     val updateCommand = regif.newRegAt(AxiAddress.UPDATE_COMMAND, "Command register to execute update command.")
     val updateRequest = RegInit(False)
