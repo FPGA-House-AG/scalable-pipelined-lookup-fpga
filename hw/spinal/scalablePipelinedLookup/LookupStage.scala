@@ -74,7 +74,7 @@ case class ChildSelBundle() extends Bundle() {
 }
 
 /** Pointer to the left and right child, and which child(s) is/are present there */
-case class LookupChildBundle(config: LookupDataConfig, padWidth: Int = 1) extends Bundle with PaddedMultiData {
+case class LookupChildBundle(config: LookupDataConfig, padWidth: Int = 4) extends Bundle with PaddedMultiData {
   val stageId = config.StageId()
   val location = config.Location()
   val childLr = ChildSelBundle()
