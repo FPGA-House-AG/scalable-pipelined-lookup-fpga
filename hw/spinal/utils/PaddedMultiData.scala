@@ -35,6 +35,7 @@ trait PaddedMultiData extends MultiData {
   }
 
   override def assignFromBits(bits: Bits): Unit = {
+    // first element is in top bits
     var offset = bits.getBitsWidth
     for ((_, e) <- elements) {
       val paddedWidth = paddedBitsWidth(e)
