@@ -104,4 +104,19 @@ case class LookupAddress(
     }
     stages(0).io.prev.apply(0).update := bus_slave_update_pulse
   }
+
+    // Rename SpinalHDL library defaults to AXI naming convention
+  def renameAxiIO(io: Bundle): Unit = {
+    io.flatten.foreach(bt => {
+      if(bt.getName().contains("_payload"))  bt.setName(bt.getName().replace("_payload",  ""))
+      if(bt.getName().contains("_lookupResult"))  bt.setName(bt.getName().replace("_lookupResult",  ""))
+      if(bt.getName().contains("_childLr")) bt.setName(bt.getName().replace("_childLr", ""))
+      if(bt.getName().contains("_0")) bt.setName(bt.getName().replace("_0", "0"))
+      if(bt.getName().contains("_1")) bt.setName(bt.getName().replace("_1", "1"))
+      if(bt.getName().startsWith("io_"))     bt.setName(bt.getName().replaceFirst("io_",""))
+      if(bt.getName().contains("reset"))     bt.setName(bt.getName().replace("reset",     "rst"))
+    })
+  }
+  // Execute the function renameAxiIO after the creation of the component
+  addPrePopTask(() => renameAxiIO(io))
 }

@@ -188,12 +188,13 @@ case class LookupResultStage(config: StageConfig) extends Component {
   val memOutput = io.interstage.memOutput
 
   val stageSel = lookup.stageId === config.stageId
-  val prefixShift = config.dataConfig.ipAddrWidth - memOutput.prefixLen
-  val prefixMatch = ((lookup.ipAddr ^ memOutput.prefix) >> prefixShift) === 0
+  val prefixMask = (S"33'x100000000" |>> memOutput.prefixLen).resize(32)
+  val prefixMatch = ((lookup.ipAddr ^ memOutput.prefix) & prefixMask.asBits) === 0
 
   // Right node is selected when bit at bitPos in ipAddr is 1, starting from most significant bit
-  val rightSelBit = config.dataConfig.ipAddrWidth - 1 - lookup.bitPos.resize(config.dataConfig.bitPosWidth - 1)
-  val rightSel = lookup.ipAddr(rightSelBit)
+  val mask =  B"32'x80000000" |>> lookup.bitPos
+  val masked_ip_addr = lookup.ipAddr & mask
+  val rightSel = masked_ip_addr.orR
 
   // IP address is passed through.
   io.next.ipAddr := lookup.ipAddr
@@ -217,7 +218,7 @@ case class LookupResultStage(config: StageConfig) extends Component {
     lookup.location
   )
 
-  when(lookupActive && prefixMatch) {
+  when (lookupActive && prefixMatch) {
     // pass (best) result from this stage if a valid prefix match
     io.next.result := memOutput.result
   } otherwise {
