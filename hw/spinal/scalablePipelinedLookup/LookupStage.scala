@@ -184,27 +184,31 @@ case class LookupResultStage(config: StageConfig) extends Component {
     val next = master(LookupStageFlow(config.dataConfig))
   }
 
-  val lookup = io.interstage.lookup
+  val lookup    = io.interstage.lookup
   val memOutput = io.interstage.memOutput
 
+  // does lookup.ipAddr match this nodes' prefix?
   val stageSel = lookup.stageId === config.stageId
   val prefixMask = (S"33'x100000000" |>> memOutput.prefixLen).resize(32)
   val prefixMatch = ((lookup.ipAddr ^ memOutput.prefix) & prefixMask.asBits) === 0
 
-  // Right node is selected when bit at bitPos in ipAddr is 1, starting from most significant bit
+  // select right child node when bit at bitPos in ipAddr is 1, left child otherwise
+  // note that bitPos 0 the most significant bit
   val mask =  B"32'x80000000" |>> lookup.bitPos
   val masked_ip_addr = lookup.ipAddr & mask
   val rightSel = masked_ip_addr.orR
 
-  // IP address is passed through.
-  io.next.ipAddr := lookup.ipAddr
-
+  // if selected child is present
   val childLr = memOutput.child.childLr
   val hasChild = (
     (childLr.hasLeft && !rightSel) || (childLr.hasRight && rightSel)
   )
 
-  val lookupActive = lookup.stageId === config.stageId && !lookup.update
+  // if a lookup in this stage is done
+  val lookupActive = (lookup.stageId === config.stageId) && !lookup.update
+
+  // IP address is passed through.
+  io.next.ipAddr := lookup.ipAddr
 
   io.next.stageId := Mux(
     lookupActive && hasChild,
@@ -218,19 +222,20 @@ case class LookupResultStage(config: StageConfig) extends Component {
     lookup.location
   )
 
-  when (lookupActive && prefixMatch) {
+  io.next.result := Mux(
+    lookupActive && prefixMatch,
     // pass (best) result from this stage if a valid prefix match
-    io.next.result := memOutput.result
-  } otherwise {
+    memOutput.result,
     // pass earlier result in all other cases (stage not addressed, no lookup, no match)
-    io.next.result := lookup.result
-  }
-  io.next.child := lookup.child
+    lookup.result
+  )
+
+  io.next.child  := lookup.child
 
   io.next.bitPos := Mux(lookupActive, lookup.bitPos + 1, lookup.bitPos)
 
   io.next.update := lookup.update
-  io.next.valid := io.interstage.valid
+  io.next.valid  := io.interstage.valid
 }
 
 /** Lookup pipeline stage with block RAM memory.
