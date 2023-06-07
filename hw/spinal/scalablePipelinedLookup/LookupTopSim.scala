@@ -54,13 +54,13 @@ object LookupTopSim extends App {
 
     // Block the update by requesting lookup.
     dut.io.lookup.foreach(lookup => {
-      lookup.payload #= 0
+      lookup.payload #= 0x327b23c0L
       lookup.valid #= true
     })
     dut.clockDomain.waitSampling()
 
     // Try to update.
-    update(0x327b23c0L, 24, 3, 1, 10/*result*/, 4, 5, true, false)
+    update(0x327b23c0L, 28, 3, 1, 10/*result*/, 4, 5, true, false)
     assert(
       axiDriver.read(dut.AxiAddress.UPDATE_STATUS) == 1,
       "Update should be blocked during lookup."
