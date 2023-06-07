@@ -21,6 +21,7 @@ import utils.PaddedMultiData
 case class LookupDataConfig(
     ipAddrWidth: Int = 32,
     locationWidth: Int = 11,
+    resultWidth: Int = 10,
     memInitTemplate: Option[String] = Some("hw/gen/meminit/stage00.mem")
 ) {
   def IpAddr() = Bits(ipAddrWidth bits)
@@ -32,7 +33,6 @@ case class LookupDataConfig(
   def stageIdWidth = bitPosWidth
   def StageId() = UInt(stageIdWidth bits)
 
-  def resultWidth = 10
   def Result() = UInt(resultWidth bits)
 }
 
