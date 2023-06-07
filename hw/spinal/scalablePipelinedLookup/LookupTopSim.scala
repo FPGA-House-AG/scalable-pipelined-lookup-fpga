@@ -47,7 +47,7 @@ object LookupTopSim extends App {
       axiDriver.write(dut.AxiAddress.UPDATE_RESULT, result)
 
       axiDriver.write(dut.AxiAddress.UPDATE_COMMAND, 0)
-      dut.io.axi.b.ready #= false
+      //dut.io.axi.b.ready #= false
     }
 
     SpinalInfo("TEST 1: See if lookup blocks update.")
