@@ -1,5 +1,7 @@
 all: sbp
 
+test: sbp_lookup_test
+
 meminit:
 	yosys meminit.ys
 	netlistsvg meminit.json -o meminit.svg
@@ -22,6 +24,7 @@ obj_dir/Vsbp_lookup: sbp_lookup_tb.cc sbp_lookup.sv sbp_lookup_stage.sv bram_tdp
 
 clean:
 	rm -f *.json *.svg
+	rm -rf obj_dir
 
 # Below are deprecated Make targets, used during early development
 
