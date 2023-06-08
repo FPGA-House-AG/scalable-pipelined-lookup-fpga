@@ -4,6 +4,7 @@ module bram_tdp #(
   parameter STAGE_ID = 0,
   parameter DATA = 72,
   parameter ADDR = 10,
+  parameter MEMINIT_DIR = "../scalable-pipelined-lookup-c/output/",
   parameter MEMINIT_FILENAME = "stage00.mem"
 ) (
   // Port A
@@ -23,13 +24,11 @@ module bram_tdp #(
  
  `define INFERRED 1
  `ifdef INFERRED
-// Shared memory
-//(* ram_style = "block" *) reg [DATA-1:0] mem [(2**ADDR)-1:0];
-(* ram_style = "ultra" *) reg [DATA-1:0] mem [(2**ADDR)-1:0];
+localparam MEMINIT_PATH = {MEMINIT_DIR, MEMINIT_FILENAME};
 
 initial begin
-  $display("Initializing RAM for stage %0d with contents of %s.", STAGE_ID, MEMINIT_FILENAME);
-  $readmemh(MEMINIT_FILENAME, mem);
+  $display("Initializing RAM for stage %0d with contents of %s.", STAGE_ID, MEMINIT_PATH);
+  $readmemh(MEMINIT_PATH, mem);
 end
 
 // Port A
