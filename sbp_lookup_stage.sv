@@ -11,8 +11,8 @@ module sbp_lookup_stage #(
 ) (
   clk, rst,
   update_i, update_o,
-  ip_addr_i, bit_pos_i, stage_id_i, location_i, result_i, 
-  ip_addr_o, bit_pos_o, stage_id_o, location_o, result_o, 
+  ip_addr_i, bit_pos_i, stage_id_i, location_i, result_i,
+  ip_addr_o, bit_pos_o, stage_id_o, location_o, result_o,
   wr_en_o, addr_o, data_i, data_o
 );
 
@@ -62,12 +62,12 @@ output logic [ADDR_BITS - 1:0] addr_o;
 input  wire  [DATA_BITS - 1:0] data_i;
 output logic [DATA_BITS - 1:0] data_o;
 
-logic [5:0]                    bit_pos_d;
-logic [STAGE_ID_BITS-1:0]      stage_id_d;
-logic [LOCATION_BITS-1:0]      location_d;
-logic [RESULT_BITS - 1:0]      result_d;
-logic [31:0]                   ip_addr_d;
-logic                          update_d;
+logic [5:0]                    bit_pos_d, bit_pos_d2;
+logic [STAGE_ID_BITS-1:0]      stage_id_d, stage_id_d2, child_stage_id_d2;
+logic [LOCATION_BITS-1:0]      location_d, location_d2, child_location_d2;
+logic [RESULT_BITS - 1:0]      result_d, result_d2;
+logic [31:0]                   ip_addr_d, ip_addr_d2;
+logic                          update_d, update_d2;
 
 // fields in memory word
 logic [31:0]      prefix_mem;
@@ -98,9 +98,6 @@ generate
   end
 endgenerate
 
-// data written to lookup table when updating (upd_i == 1)
-assign data_o = { ip_addr_i/*prefix*/, {PAD_BIT_POS_BITS{1'b0}}, bit_pos_i/*prefix length*/, result_i };
-
 /* stage_id and location delayed */
 always_ff @(posedge clk) begin
   bit_pos_d  <= bit_pos_i;
@@ -117,10 +114,16 @@ always_comb begin
   /* is this stage selected? */
   stage_sel = (stage_id_d == STAGE_ID);
 end
+//always_ff @(posedge clk) begin
+//  /* is this stage selected? */
+//  stage_sel <= (stage_id_i == STAGE_ID);
+//end
 
 // write to stage memory
 assign wr_en_o = update_i && (stage_id_i == STAGE_ID);
 assign addr_o = location_i;
+// data written to lookup table when updating (upd_i == 1)
+assign data_o = { ip_addr_i/*prefix*/, {PAD_BIT_POS_BITS{1'b0}}, bit_pos_i/*prefix length*/, result_i };
 
 always_ff @(posedge clk) begin
   if (wr_en_o) begin
@@ -129,22 +132,37 @@ always_ff @(posedge clk) begin
 end
 
 // ip_addr_i matches against prefix from stage memory?
-logic prefix_match;
+//logic prefix_match;
+logic [31:0] prefix_xor;
+logic [31:0] prefix_mask;
+logic [31:0] prefix_xor_masked;
 always_comb begin
-  /* do the prefix bits match? */
-  prefix_match = ((ip_addr_d ^ prefix_mem) >> (32 - prefix_length_mem)) == 0;
+  prefix_mask = 32'(33'sb1_0000_0000_0000_0000_0000_0000_0000_0000 >>> prefix_length_mem);
+  prefix_xor = ip_addr_d ^ prefix_mem;
+  prefix_xor_masked = prefix_xor & prefix_mask;
+  //prefix_match = (prefix_xor & prefix_mask) == 0;
+  //$display("stage %d prefix_mask 0x%x prefix_length_mem %d", STAGE_ID, prefix_mask, prefix_length_mem);
 end
 
-logic valid_match;
-always_comb begin
-  valid_match = prefix_match && stage_sel;
-end
+//always_ff @(posedge clk) begin
+//  $display("ip_addr_d 0x%x", ip_addr_d);
+//  $display("prefix_mem 0x%x", prefix_mem);
+//  $display("prefix_length_mem %d", prefix_length_mem);
+//end
+
+///logic valid_match;
+///always_comb begin
+///  valid_match = prefix_match && stage_sel;
+///end
 
 // right_sel is set when the right child is selected, i.e. bit bit_pos in ip_addr is 1
-logic right_sel;
-`define OLD 1
-`ifdef OLD
 logic [31:0] mask;
+///// alternative is to calculate the mask on the input and register it
+/////always_ff @(posedge clk) begin
+/////  mask <= 32'b1000_0000_0000_0000_0000_0000_0000_0000 >> bit_pos_i;
+/////end
+
+logic right_sel;
 logic [31:0] masked_ip_addr;
 always_comb begin : named
   /* is bit at bit_pos in ip_addr set? then select right child */
@@ -152,125 +170,99 @@ always_comb begin : named
   masked_ip_addr = ip_addr_d & mask;
   right_sel = masked_ip_addr > 0;
 end
-`else
-assign right_sel = ip_addr_d[31 - bit_pos_d[4:0]];
-`endif
 
+logic has_child;/*@TODO remove?*/
+assign has_child = (has_left && !right_sel) || (has_right && right_sel);
 
-`define REG_OUT 1
-`ifdef REG_OUT
-// ip_addr_o, ip_addr is passed-through
+//logic right_sel_d2;
+logic stage_sel_d2;
+logic prefix_match_d2;
+///logic valid_match_d2;
+logic has_child_d2;
+///logic [31:0] prefix_mask_d2;
+///logic [31:0] prefix_xor_d2;
+logic [31:0] prefix_xor_masked_d2;
 always_ff @(posedge clk) begin
-  ip_addr_o <= ip_addr_d;
-end
+  stage_id_d2 <= stage_id_d;
+  location_d2 <= location_d;
+  ip_addr_d2  <= ip_addr_d;
+  result_d2   <= result_d;
+  update_d2   <= update_d;
 
-/* stage_id_o */
-always_ff @(posedge clk) begin
-  logic has_child = (has_left && !right_sel) || (has_right && right_sel);
-  if (stage_sel && !update_d && has_child) begin
-    stage_id_o <= child_stage_id_mem;
-  end else begin
-    stage_id_o <= stage_id_d;
-  end
-end
-
-/* location_o */
-always_ff @(posedge clk) begin
   if (stage_sel && !update_d) begin
-    if (right_sel)
-      // right child is located after left child, always in same stage
-      location_o <= child_location_mem + 1;
-    else
-      location_o <= child_location_mem;
+    bit_pos_d2 <= bit_pos_d + 1;
   end else begin
-    location_o <= location_d;
+    bit_pos_d2 <= bit_pos_d;
   end
-end
 
-logic [RESULT_BITS - 1:0]      result_ours_d;
-/* result_o */
-always_ff @(posedge clk) begin
-  //result_ours_d <= { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_i, {PAD_LOCATION_BITS{1'b0}}, location_i, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
-  result_ours_d <= { {PAD_STAGE_ID_BITS{1'b0}}, 6'(STAGE_ID), {PAD_LOCATION_BITS{1'b0}}, location_i, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
-  if (valid_match && !update_d) begin
-    /* RESULT_BITS */
-    //result_o <= { {PAD_STAGE_ID_BITS{1'b0}}, stage_id_d, {PAD_LOCATION_BITS{1'b0}}, location_d, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
-    result_o <= result_ours_d;
+  child_stage_id_d2 <= child_stage_id_mem;
+  if (right_sel) begin
+    // right child is located after left child, always in same stage
+    child_location_d2 <= child_location_mem + 1;
   end else begin
-    result_o <= result_d;
+    child_location_d2 <= child_location_mem;
   end
-end
 
-/* bit_pos_o */
-always_ff @(posedge clk) begin
-  if (stage_sel && !update_d) begin
-    bit_pos_o <= bit_pos_d + 1;
-  end else begin
-    bit_pos_o <= bit_pos_d;
-  end
-end
+  stage_sel_d2 <= stage_sel;
+  //right_sel_d2 <= right_sel ;
 
-/* update_o */
-always_ff @(posedge clk) begin
-  update_o <= update_d;
+  ///valid_match_d2  <= valid_match;
+  has_child_d2 <= has_child;/*@TODO remove?*/
+  ///prefix_mask_d2 <= prefix_mask;
+  ///prefix_xor_d2 <= prefix_xor;
+  prefix_xor_masked_d2 <= prefix_xor_masked;
+  ///prefix_match_d2 <= prefix_match;
 end
-
-`else // !REG_OUT
+assign prefix_match_d2 = (prefix_xor_masked_d2) == 0;
 
 // ip_addr_o, ip_addr is passed-through
 always_comb begin
-  ip_addr_o = ip_addr_d;
+  ip_addr_o = ip_addr_d2;
 end
 
 /* stage_id_o */
 always_comb begin
-  logic has_child = (has_left && !right_sel) || (has_right && right_sel);
-  if (stage_sel && !update_d && has_child) begin
-    stage_id_o = child_stage_id_mem;
+  // this stage was addressed for lookup?
+  if (stage_sel_d2 && !update_d2 /* && has_child_d2 @TODO remove?*/) begin
+    assert(has_child_d2);
+    // pass stage index from memory
+    stage_id_o = child_stage_id_d2;
   end else begin
-    stage_id_o = stage_id_d;
+    stage_id_o = stage_id_d2;
   end
 end
 
 /* location_o */
 always_comb begin
-  if (stage_sel && !update_d) begin
-    if (right_sel)
-      // right child is located after left child, always in same stage
-      location_o = child_location_mem + 1;
-    else
-      location_o = child_location_mem;
+  // this stage was addressed for lookup?
+  if (stage_sel_d2 && !update_d2) begin
+    assert(has_child_d2);
+    // pass location index from memory (already incremented in case of R child)
+    location_o = child_location_d2;
   end else begin
-    location_o = location_d;
+    location_o = location_d2;
   end
 end
 
-logic [RESULT_BITS - 1:0]      result_ours_d;
+logic [RESULT_BITS - 1:0] result_ours_d2;
 /* result_o */
 always_comb begin
-  result_ours_d = { {PAD_STAGE_ID_BITS{1'b0}}, 6'(STAGE_ID), {PAD_LOCATION_BITS{1'b0}}, location_i, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
-  if (valid_match && !update_d) begin
-    result_o = result_ours_d;
+  result_ours_d2 = { {PAD_STAGE_ID_BITS{1'b0}}, 6'(STAGE_ID), {PAD_LOCATION_BITS{1'b0}}, location_d2, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
+  if (stage_sel_d2 && prefix_match_d2 && !update_d2) begin
+    result_o = result_ours_d2;
   end else begin
-    result_o = result_d;
+    result_o = result_d2;
   end
 end
 
 /* bit_pos_o */
 always_comb begin
-  if (stage_sel && !update_d) begin
-    bit_pos_o = bit_pos_d + 1;
-  end else begin
-    bit_pos_o = bit_pos_d;
-  end
+  bit_pos_o = bit_pos_d2;
 end
 
 /* update_o */
 always_comb begin
-  update_o = update_d;
+  update_o = update_d2;
 end
-
-`endif
 
 endmodule
-
