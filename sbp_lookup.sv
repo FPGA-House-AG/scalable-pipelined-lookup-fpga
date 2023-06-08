@@ -71,14 +71,14 @@ logic                       update   [NUM_STAGES][NUM_LOOKUP], update_d  [NUM_LO
 always_ff @(posedge clk) begin
   if (clk) begin
     /* first interface is for lookups and updates, lookups have priority over updates */
-    update_d[0] <= upd_i && !lookup;
+    update_d[0] <= upd_i && !lookup_i;
     ip_addr_d [0] <= 0;
     bit_pos_d [0] <= 0;
     stage_id_d[0] <= 0;
     location_d[0] <= 0;
     result_d  [0] <= 0;
     /* not updating the lookup table? */
-    if (lookup) begin
+    if (lookup_i) begin
       /* perform an IP address lookup */
       ip_addr_d [0] <= ip_addr_i;
     /* updating the lookup table */
@@ -239,4 +239,3 @@ assign ip_addr2_o = ip_addr[NUM_STAGES - 1][1];
 end
 
 endmodule
-
