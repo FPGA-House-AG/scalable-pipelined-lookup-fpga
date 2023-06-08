@@ -15,7 +15,9 @@ module bram_tdp #(
   output  reg     [DATA-1:0]  a_dout,
     
   // Port B
+  /* verilator lint_off UNUSEDSIGNAL */
   input   wire                b_clk,
+  /* verilator lint_on UNUSEDSIGNAL */
   input   wire                b_wr,
   input   wire    [ADDR-1:0]  b_addr,
   input   wire    [DATA-1:0]  b_din,
@@ -40,11 +42,8 @@ always @(posedge a_clk) begin
   end
 end
 
-// Port B
-always @(posedge b_clk) begin
-  b_dout      <= mem[b_addr];
-  if (b_wr) begin
-    //b_dout      <= b_din;
+always @(posedge a_clk) begin
+  if (b_wr)
     mem[b_addr] <= b_din;
   end
 end
