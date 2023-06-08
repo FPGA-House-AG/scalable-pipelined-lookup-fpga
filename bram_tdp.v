@@ -39,17 +39,17 @@ end
 
 // Port A
 always @(posedge a_clk) begin
-  a_dout      <= mem[a_addr];
-  if (a_wr) begin
-    //a_dout      <= a_din;
+  if (a_wr)
     mem[a_addr] <= a_din;
-  end
+  else
+    a_dout <= mem[a_addr];
 end
 
 always @(posedge a_clk) begin
   if (b_wr)
     mem[b_addr] <= b_din;
-  end
+  else
+    b_dout <= mem[b_addr];
 end
 
 `else // !INFERRED // Xilinx
