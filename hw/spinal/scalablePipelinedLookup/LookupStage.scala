@@ -174,7 +174,7 @@ case class LookupMemStage(
   *
   * @param config Stage configuration.
   */
-case class LookupResultStage(config: StageConfig) extends Component {
+case class LookupResultStage(config: StageConfig, registerPreMux: Boolean) extends Component {
   val io = new Bundle {
 
     /** Interface to LookupMemStage. */
@@ -189,8 +189,10 @@ case class LookupResultStage(config: StageConfig) extends Component {
 
   // does lookup.ipAddr match this nodes' prefix?
   val stageSel = lookup.stageId === config.stageId
-  val prefixMask = (S"33'x100000000" |>> memOutput.prefixLen).resize(32)
-  val prefixMatch = ((lookup.ipAddr ^ memOutput.prefix) & prefixMask.asBits) === 0
+  val prefixMask = (S"33'x100000000" |>> memOutput.prefixLen).resize(32).asBits
+  val prefixXor = (lookup.ipAddr ^ memOutput.prefix)
+  val prefixXorMasked = (prefixXor & prefixMask)
+  //val prefixMatch = (prefixXorMasked === 0)
 
   // select right child node when bit at bitPos in ipAddr is 1, left child otherwise
   // note that bitPos 0 the most significant bit
@@ -205,37 +207,40 @@ case class LookupResultStage(config: StageConfig) extends Component {
   )
 
   // if a lookup in this stage is done
-  val lookupActive = (lookup.stageId === config.stageId) && !lookup.update
+  val lookupActive = stageSel && !lookup.update
+
+  val delay = if (registerPreMux) 1 else 0
 
   // IP address is passed through.
-  io.next.ipAddr := lookup.ipAddr
+  io.next.ipAddr := Delay(lookup.ipAddr, delay)
 
   io.next.stageId := Mux(
-    lookupActive && hasChild,
-    memOutput.child.stageId,
-    lookup.stageId
+    Delay(stageSel, delay) && !Delay(lookup.update, delay)/* && Delay(hasChild, delay)*/,
+    Delay(memOutput.child.stageId, delay),
+    Delay(lookup.stageId, delay)
   )
 
   io.next.location := Mux(
-    lookupActive,
-    memOutput.child.location + Mux(rightSel, 1, 0),
-    lookup.location
+    Delay(stageSel, delay) && !Delay(lookup.update, delay),
+    Delay(memOutput.child.location + U(rightSel), delay),
+    Delay(lookup.location, delay)
   )
 
   io.next.result := Mux(
-    lookupActive && prefixMatch,
+    Delay(stageSel, delay) && !Delay(lookup.update, delay) && (Delay(prefixXorMasked, delay) === 0),
     // pass (best) result from this stage if a valid prefix match
-    memOutput.result,
+    Delay(memOutput.result, delay),
     // pass earlier result in all other cases (stage not addressed, no lookup, no match)
-    lookup.result
+    Delay(lookup.result, delay)
   )
 
-  io.next.child  := lookup.child
+  io.next.child  := Delay(lookup.child, delay)
 
-  io.next.bitPos := Mux(lookupActive, lookup.bitPos + 1, lookup.bitPos)
+  //io.next.bitPos := Mux(Delay(lookupActive, delay), Delay(lookup.bitPos, delay) + 1, Delay(lookup.bitPos, delay))
+  io.next.bitPos := Delay(Mux(lookupActive, lookup.bitPos + 1, lookup.bitPos), delay)
 
-  io.next.update := lookup.update
-  io.next.valid  := io.interstage.valid
+  io.next.update := Delay(lookup.update, delay)
+  io.next.valid  := Delay(io.interstage.valid, delay)
 }
 
 /** Lookup pipeline stage with block RAM memory.
@@ -250,6 +255,7 @@ case class LookupStagesWithMem(
     config: StageConfig,
     channelCount: Int,
     registerInterstage: Boolean,
+    registerPreMux: Boolean,
     registerOutput: Boolean
 ) extends Component {
   val io = new Bundle {
@@ -263,6 +269,7 @@ case class LookupStagesWithMem(
 
   /** Dual-port Block RAM memory. */
   val mem = Mem(LookupMemData(config.dataConfig).asBits, 1 << config.memAddrWidth)
+  //mem.addAttribute(new AttributeString("RAM_STYLE", "ultra"))
 
   if (config.dataConfig.memInitTemplate != None) {
     mem.init(
@@ -279,7 +286,7 @@ case class LookupStagesWithMem(
     * Enable write channel only for the first channel.
     */
   val channels = Array.tabulate(channelCount) { i =>
-    (LookupMemStage(config, i == 0), LookupResultStage(config))
+    (LookupMemStage(config, i == 0), LookupResultStage(config, registerPreMux))
   }
 
   for (

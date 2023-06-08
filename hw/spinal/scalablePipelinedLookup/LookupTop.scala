@@ -18,6 +18,7 @@ import spinal.lib.bus.regif.AccessType._
   * @param axiMapping AXI4 size mapping.
   * @param registerInterstage Add a register stage between memory fetch and data
   *                           processing stages.
+  * @param registerPreMux Add a register stage before the output muxes.
   * @param registerOutput Add a register stage at the output of stage flows.
   */
 case class LookupTop(
@@ -26,7 +27,8 @@ case class LookupTop(
     axiConfig: AxiLite4Config = AxiLite4Config(32, 32),
     axiMapping: SizeMapping = SizeMapping(0x0L, 32 Bytes),
     registerInterstage: Boolean = false,
-    registerOutput: Boolean = true
+    registerPreMux: Boolean = true,
+    registerOutput: Boolean = false
 ) extends Component {
 
   /** Count of memory channels. */
@@ -125,7 +127,7 @@ case class LookupTop(
 
   /** Lookup pipeline stages. */
   val stages = Array.tabulate(config.ipAddrWidth) { stageId =>
-    LookupStagesWithMem(StageConfig(config, stageId), channelCount, registerInterstage, registerOutput)
+    LookupStagesWithMem(StageConfig(config, stageId), channelCount, registerInterstage, registerPreMux, registerOutput)
   }
 
   // First stage connection.
@@ -180,6 +182,6 @@ case class LookupTop(
 
 object LookupTopVerilog extends App {
   Config.spinal
-    .generateVerilog(LookupTop(config = LookupDataConfig(memInitTemplate = None)))
+    .generateVerilog(LookupTop(registerInterstage = false, config = LookupDataConfig(memInitTemplate = None)))
     .printPruned()
 }
