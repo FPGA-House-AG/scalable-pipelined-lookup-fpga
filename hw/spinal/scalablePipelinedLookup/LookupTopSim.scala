@@ -60,7 +60,7 @@ object LookupTopSim extends App {
     dut.clockDomain.waitSampling()
 
     // Try to update.
-    update(0x327b23c0L, 28, 3, 1, 10/*result*/, 4, 5, true, false)
+    update(0x327b23c0L, 28, 3, 1, 10/*result*/, 0, 0, true, false)
     assert(
       axiDriver.read(dut.AxiAddress.UPDATE_STATUS) == 1,
       "Update should be blocked during lookup."
@@ -75,7 +75,7 @@ object LookupTopSim extends App {
     SpinalInfo("TEST 2: Lookup on both channels.")
 
     /** Latency from lookup request to result. */
-    val Latency = dut.config.ipAddrWidth * 2 + 0
+    val Latency = dut.config.ipAddrWidth * 2 + 1
 
     /** Cycle on which a lookup will be performed. */
     val LookupCycle = 1
@@ -100,10 +100,10 @@ object LookupTopSim extends App {
       if (i == LookupCycle) {
         // Request lookup on both channels.
         dut.io.lookup(0).valid #= true
-        dut.io.lookup(0).payload #= 0x327b23f0L
+        dut.io.lookup(0).payload #= 0x327b23c0L
 
         dut.io.lookup(1).valid #= true
-        dut.io.lookup(1).payload #= 0x62555800L
+        dut.io.lookup(1).payload #= 0x327b23c0L// 0x62555800L
       }
 
 
