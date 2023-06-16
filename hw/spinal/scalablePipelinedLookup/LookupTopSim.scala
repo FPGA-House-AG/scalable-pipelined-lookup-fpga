@@ -75,7 +75,7 @@ object LookupTopSim extends App {
     SpinalInfo("TEST 2: Lookup on both channels.")
 
     /** Latency from lookup request to result. */
-    val Latency = dut.config.ipAddrWidth * 2 + 1
+    val Latency = 1 + dut.config.ipAddrWidth * 2 + 1
 
     /** Cycle on which a lookup will be performed. */
     val LookupCycle = 1
