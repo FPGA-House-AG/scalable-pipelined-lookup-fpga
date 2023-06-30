@@ -9,6 +9,7 @@ val spinalIdslPlugin = compilerPlugin("com.github.spinalhdl" %% "spinalhdl-idsl-
 
 lazy val scalablePipelinedLookup = (project in file("."))
   .settings(
+    name := "ScalablePipelinedLookup",
     Compile / scalaSource := baseDirectory.value / "hw" / "spinal",
     libraryDependencies ++= Seq(spinalCore, spinalLib, spinalIdslPlugin)
   )
