@@ -18,7 +18,8 @@
 
 #define VCD 1
 
-#define LATENCY (65)
+#define NUM_STAGES (32)
+#define LATENCY (1 + 2*NUM_STAGES + 0/*no output register yet*/ )
 uint32_t ip_addr_i[LATENCY];
 uint32_t ip_addr2_i[LATENCY];
 int ip_addr_index = 0;
