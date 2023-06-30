@@ -114,10 +114,6 @@ always_comb begin
   /* is this stage selected? */
   stage_sel = (stage_id_d == STAGE_ID);
 end
-//always_ff @(posedge clk) begin
-//  /* is this stage selected? */
-//  stage_sel <= (stage_id_i == STAGE_ID);
-//end
 
 // write to stage memory
 assign wr_en_o = update_i && (stage_id_i == STAGE_ID);
