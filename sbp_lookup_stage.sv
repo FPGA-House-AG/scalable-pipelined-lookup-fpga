@@ -219,8 +219,7 @@ end
 /* stage_id_o */
 always_comb begin
   // this stage was addressed for lookup?
-  if (stage_sel_d2 && !update_d2 /* && has_child_d2 @TODO remove?*/) begin
-    assert(has_child_d2);
+  if (stage_sel_d2 && !update_d2 && has_child_d2 /* @TODO remove? */) begin
     // pass stage index from memory
     stage_id_o = child_stage_id_d2;
   end else begin
