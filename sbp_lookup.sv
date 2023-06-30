@@ -6,7 +6,8 @@ module sbp_lookup #(
   //parameter DATA_BITS = 72,
   parameter STAGE_ID_BITS = 6,
   parameter LOCATION_BITS = 11,
-  parameter PAD_BITS = 4
+  parameter PAD_BITS = 4,
+  parameter MEMINIT = 1
 ) (
   clk, rst,
   /* update interface */
@@ -211,15 +212,27 @@ generate
       // "NAME00" + (256* (i / 10)) + (i % 10)
       // "" is treated as a number, and digits 00 are added to, resulting in "%02d, i" for i small enough
       //bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("../scalable-pipelined-lookup-c/output/stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
-      bram_tdp #(.STAGE_ID(i), .MEMINIT_FILENAME("stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ), .ADDR(ADDR_BITS), .DATA(DATA_BITS)) stage_ram_inst (
+      bram_tdp #(
+        .STAGE_ID(i),
+        .RAMSTYLE(i<0?"distributed":(i<=32?"auto":"ultra")),
+        .MEMINIT(MEMINIT),
+        .MEMINIT_FILENAME("stage00.mem" + 256**4 * ((256**1 * (i / 10)) + 256**0 * (i % 10)) ),
+        // binary tree, so less entries in top, ADDR_BITS is max address bits
+        .ADDR((i+1)<ADDR_BITS?(i+1):ADDR_BITS),
+        .DATA(DATA_BITS)
+      ) stage_ram_inst (
         .a_clk (clk),
         .a_wr  (wr_en[i][0]),
+        /* verilator lint_off WIDTH */
         .a_addr( addr[i][0]),
+        /* verilator lint_on WIDTH */
         .a_din (wdata[i][0]),
         .a_dout(rdata[i][0]),
         .b_clk (clk),
         .b_wr  (0),
+        /* verilator lint_off WIDTH */
         .b_addr( addr[i][1]),
+        /* verilator lint_on WIDTH */
         .b_din (0),
         .b_dout(rdata[i][1])
       );
