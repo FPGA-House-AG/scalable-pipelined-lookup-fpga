@@ -211,7 +211,7 @@ always_ff @(posedge clk) begin
 end
 assign prefix_match_d2 = (prefix_xor_masked_d2) == 0;
 
-// ip_addr_o, ip_addr is passed-through
+// ip_addr_o, ip_addr is always passed-through
 always_comb begin
   ip_addr_o = ip_addr_d2;
 end
@@ -232,8 +232,7 @@ end
 always_comb begin
   // this stage was addressed for lookup?
   if (stage_sel_d2 && !update_d2) begin
-    assert(has_child_d2);
-    // pass location index from memory (already incremented in case of R child)
+    // pass location index from memory (already incremented in case of right child)
     location_o = child_location_d2;
   end else begin
     location_o = location_d2;
@@ -244,6 +243,7 @@ logic [RESULT_BITS - 1:0] result_ours_d2;
 /* result_o */
 always_comb begin
   result_ours_d2 = { {PAD_STAGE_ID_BITS{1'b0}}, 6'(STAGE_ID), {PAD_LOCATION_BITS{1'b0}}, location_d2, {PAD_CHILD_LR_BITS{1'b0}}, {CHILD_LR_BITS{1'b0}} };
+  // this stage provided a (by design; longer) prefix match?
   if (stage_sel_d2 && prefix_match_d2 && !update_d2) begin
     result_o = result_ours_d2;
   end else begin
