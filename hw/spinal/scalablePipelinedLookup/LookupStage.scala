@@ -48,8 +48,8 @@ case class StageConfig(dataConfig: LookupDataConfig, stageId: Int) {
 
   printf("StageConfig() memDataWidth = %d bits\n", memDataWidth)
 
-  /** RAM address width. */
-  def memAddrWidth = if ((stageId + 1) < dataConfig.locationWidth) stageId + 1 else dataConfig.locationWidth
+  /** RAM address width, depending on depth in the tree. Stage N has N address bits, even for N=0! */
+  def memAddrWidth = if (stageId < dataConfig.locationWidth) stageId else dataConfig.locationWidth
 
   /** MemIf interface configuration. */
   def memIfConfig = MemIfConfig(memDataWidth, memAddrWidth)
