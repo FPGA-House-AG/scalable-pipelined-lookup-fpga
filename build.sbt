@@ -12,7 +12,7 @@ lazy val scalablePipelinedLookup = (project in file("."))
   .settings(
     name := "ScalablePipelinedLookup",
     Compile / scalaSource := baseDirectory.value / "hw" / "spinal",
-    libraryDependencies ++= Seq(spinalCore, spinalLib, , spinalSim, spinalIdslPlugin)
+    libraryDependencies ++= Seq(spinalCore, spinalLib, spinalSim, spinalIdslPlugin)
   )
 
 fork := true
