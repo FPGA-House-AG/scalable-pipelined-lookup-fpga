@@ -29,7 +29,7 @@ module bram_tdp #(
  `define INFERRED 1
  `ifdef INFERRED
 // Shared memory "ultra" or "block"
-(* ram_style = RAMSTYLE *) reg [DATA-1:0] mem [(2**ADDR)-1:0];
+(* ram_style = RAMSTYLE *) reg [DATA-1:0] mem [(2**ADDR)/*-1:0*/];
 
 localparam MEMINIT_PATH = {MEMINIT_DIR, MEMINIT_FILENAME};
 
